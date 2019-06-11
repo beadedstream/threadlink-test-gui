@@ -1,5 +1,6 @@
 import time
 import serial
+import re
 import serial.tools.list_ports
 from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot
 
@@ -12,13 +13,11 @@ class SerialManager(QObject):
     line_written = pyqtSignal()
     flash_test_succeeded = pyqtSignal()
     flash_test_failed = pyqtSignal()
-    gps_test_succeeded = pyqtSignal()
-    gps_test_failed = pyqtSignal()
     serial_test_succeeded = pyqtSignal(str)
     serial_test_failed = pyqtSignal(str)
-    rtc_test_succeeded = pyqtSignal()
-    rtc_test_failed = pyqtSignal()
     port_unavailable_signal = pyqtSignal()
+    version_signal = pyqtSignal(str)
+    no_version = pyqtSignal()
 
     def __init__(self):
         super().__init__()
@@ -37,15 +36,65 @@ class SerialManager(QObject):
         if self.ser.is_open:
             try:
                 self.flush_buffers()
+                # Send individual chars and wait for echo back,
+                # because half-duplex with no control flow.
+                for c in command:
+                    self.ser.write(c.encode())
+                    self.ser.flush()
+                    time.sleep(0.05)
+                    self.ser.read(self.ser.in_waiting)
 
-                command = (command + "\r\n").encode()
-                self.ser.write(command)
-                data = self.ser.read_until(self.end).decode()
-                self.data_ready.emit(data)
+                self.ser.write(b"\r\n")
+                self.ser.flush()
+                time.sleep(0.1)
+                try:
+                    response = self.ser.read_until(self.end).decode()
+                    self.data_ready.emit(response)
+                except UnicodeDecodeError:
+                    self.serial_error_signal.emit()
+                    return
+
             except serial.serialutil.SerialException:
                 self.no_port_sel.emit()
         else:
             self.no_port_sel.emit()
+
+    @pyqtSlot()
+    def version_check(self):
+        command = "version"
+        p = "[0-9]+\.[0-9]+[a-z]"
+        if self.ser.is_open:
+            try:
+                self.flush_buffers()
+                # Send individual chars and wait for echo back,
+                # because half-duplex with no control flow.
+                for c in command:
+                    self.ser.write(c.encode())
+                    self.ser.flush()
+                    time.sleep(0.05)
+                    self.ser.read(self.ser.in_waiting)
+
+                self.ser.write(b"\r\n")
+                self.ser.flush()
+                time.sleep(0.1)
+                try:
+                    response = self.ser.read_until(self.end).decode()
+                except UnicodeDecodeError:
+                    self.serial_error_signal.emit()
+                    return
+
+                # Ensure version matches format, otherwise emit error signal.
+                if re.search(p, response):
+                    self.version_signal.emit(re.search(p, response).group())
+                    return
+                else:
+                    self.no_version.emit()
+                    return
+
+            except serial.serialutil.SerialException:
+                self.port_unavailable_signal.emit()
+        else:
+            self.port_unavailable_signal.emit()
 
     @pyqtSlot()
     def one_wire_test(self):
@@ -104,30 +153,6 @@ class SerialManager(QObject):
             self.no_port_sel.emit()
 
     @pyqtSlot()
-    def iridium_command(self):
-        """Sends commands for reading from the iridium."""
-        if self.ser.is_open:
-            try:
-                self.flush_buffers()
-
-                self.ser.write(b"iridium\r\n")
-                time.sleep(2)
-                num_bytes = self.ser.in_waiting
-                self.ser.read(num_bytes)
-                self.ser.write(b"at+gsn\r\n")
-                time.sleep(2)
-                num_bytes = self.ser.in_waiting
-                data = self.ser.read(num_bytes).decode()
-                self.ser.write(b".\r\n")
-                time.sleep(2)
-                self.ser.read_until(self.end)
-                self.data_ready.emit(data)
-            except serial.serialutil.SerialException:
-                self.no_port_sel.emit()
-        else:
-            self.no_port_sel.emit()
-
-    @pyqtSlot()
     def flash_test(self):
         """Writes dummy data to flash, checks that it was written and then 
         clears it."""
@@ -179,31 +204,6 @@ class SerialManager(QObject):
         else:
             self.no_port_sel.emit()
 
-    @pyqtSlot()
-    def gps_test(self):
-        """Checks that the board has communication with the GPS module."""
-        if self.ser.is_open:
-            try:
-                self.flush_buffers()
-
-                self.ser.write(b"gps-rx\r\n")
-                time.sleep(0.3)
-                # Throw away 'gps-rx' command echo
-                self.ser.read_until(b"\r\n")
-                # Read first line of GPS data
-                data = self.ser.read_until(b"\r\n")
-                # Stop gps data
-                self.ser.write(b".\r\n")
-
-                if b"$GNTXT" not in data:
-                    self.gps_test_failed.emit()
-                    return
-
-                self.gps_test_succeeded.emit()
-
-            except serial.serialutil.SerialException:
-                self.no_port_sel.emit()
-
     @pyqtSlot(str)
     def set_serial(self, serial_num):
         """Sets the serial port."""
@@ -224,43 +224,6 @@ class SerialManager(QObject):
                         self.serial_test_failed.emit(data)
                         return
                 self.serial_test_succeeded.emit(serial_num)
-
-            except serial.serialutil.SerialException:
-                self.no_port_sel.emit()
-
-    @pyqtSlot()
-    def rtc_test(self):
-        """Sets the time, sets an alarm and then checks that the alert
-        is set."""
-        if self.ser.is_open:
-            try:
-                self.flush_buffers
-                # Make sure D505 app is off.
-                self.ser.write(b"app 0\r\n")
-                time.sleep(0.5)
-                self.ser.read_until(self.end)
-                self.ser.write(b"rtc-set 030719 115955\r\n")
-                time.sleep(0.5)
-                self.ser.read_until(self.end)
-                self.ser.write(b"rtc-alarm 12:00\r\n")
-                time.sleep(0.5)
-                self.ser.read_until(self.end)
-                time.sleep(0.5)
-                self.ser.write(b"rtc-alarmed\r\n")
-                data = self.ser.read_until(self.end).decode()
-                if "0" not in data:
-                    self.rtc_test_failed.emit()
-                    return
-
-                time.sleep(5)
-                self.ser.write(b"rtc-alarmed\r\n")
-                time.sleep(0.5)
-                data = self.ser.read_until(self.end).decode()
-                if "1" not in data:
-                    self.rtc_test_failed.emit()
-                    return
-
-                self.rtc_test_succeeded.emit()
 
             except serial.serialutil.SerialException:
                 self.no_port_sel.emit()

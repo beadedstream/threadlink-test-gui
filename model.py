@@ -44,10 +44,8 @@ class Model:
             "2": 0.250,
             "3": 0.500
         }
-        self.internal_5v = None
-        self.input_v = None
 
-    def compare_to_limit(self, limit, value):
+    def compare_to_limit(self, limit: str, value: float):
         """Compare input value against limit and return the result as a bool."""
 
         if limit == "input_i":

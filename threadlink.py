@@ -1,6 +1,5 @@
 import re
 import os.path
-import avr
 from pathlib import Path
 from PyQt5.QtWidgets import (
     QWizardPage, QWizard, QLabel, QVBoxLayout, QCheckBox, QGridLayout,

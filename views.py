@@ -570,11 +570,6 @@ class ThreadlinkUtility(QMainWindow):
                                     "E.g.: 000a5296")
                 return
 
-        self.settings.setValue("iridium_imei", self.iridium_imei.text())
-        self.settings.setValue("lat_start", self.lat_start.text())
-        self.settings.setValue("lat_stop", self.lat_stop.text())
-        self.settings.setValue("lon_start", self.lon_start.text())
-        self.settings.setValue("lon_stop", self.lon_stop.text())
         self.settings.setValue("hex_files_path", self.hex_path_lbl.text())
         self.settings.setValue("report_file_path", self.report_path_lbl.text())
         self.settings.setValue("atprogram_file_path",

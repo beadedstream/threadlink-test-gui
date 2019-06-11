@@ -177,7 +177,7 @@ class Setup(QWizardPage):
         else:
             self.tu.output_2p5v_status.setStyleSheet(
                 self.threadlink.status_style_fail)
-        if (self.model.compare_to_limit(limits[2], values[2])):
+        if (self.model.compare_to_limit(limits[3], values[3])):
             self.tu.supply_1p8v_status.setStyleSheet(
                 self.threadlink.status_style_pass)
         else:
