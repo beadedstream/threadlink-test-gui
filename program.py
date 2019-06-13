@@ -1,5 +1,6 @@
 import re
 import avr
+from packaging.version import LegacyVersion
 from pathlib import Path
 from PyQt5.QtWidgets import (
     QWizardPage, QWizard, QLabel, QVBoxLayout, QCheckBox, QGridLayout,
@@ -18,7 +19,9 @@ class Program(QWizardPage):
     sleep_signal = pyqtSignal(int)
     complete_signal = pyqtSignal()
     flash_signal = pyqtSignal()
-    version_check = pyqtSignal()
+    board_version_check = pyqtSignal()
+    test_one_wire = pyqtSignal()
+    reprogram_one_wire = pyqtSignal()
 
     def __init__(self, threadlink, test_utility, serial_manager, model, report):
         super().__init__()
@@ -28,9 +31,14 @@ class Program(QWizardPage):
         self.sm = serial_manager
         self.report = report
         self.model = model
-        self.main_app_version = None
+        self.main_app_file_version = None
+        self.one_wire_file_version = None
+        self.one_wire_file_path = None
 
         self.sm.no_port_sel.connect(self.port_warning)
+        self.sm.no_port_sel_batch.connect(self.port_warning_batch)
+        self.sm.no_port_sel_onewire.connect(self.port_warning_onewire)
+        self.sm.serial_error_signal.connect(self.serial_error)
 
         self.system_font = QApplication.font().family()
         self.label_font = QFont(self.system_font, 12)
@@ -43,7 +51,8 @@ class Program(QWizardPage):
                                "write_lockbits": "Complete!"}
 
         # Widgets
-        self.batch_lbl = QLabel("Connect AVR programmer to board.")
+        self.batch_lbl = QLabel("Connect AVR programmer to board and ensure "
+                                "serial port selected in menu.")
         self.batch_lbl.setFont(self.label_font)
         self.batch_chkbx = QCheckBox()
         self.batch_chkbx.setStyleSheet("QCheckBox::indicator \
@@ -51,15 +60,14 @@ class Program(QWizardPage):
                                                    height: 20px}")
         self.batch_chkbx.clicked.connect(
             lambda: self.threadlink.checked(self.batch_lbl, self.batch_chkbx))
-        self.batch_chkbx.clicked.connect(self.check_version)
+        self.batch_chkbx.clicked.connect(self.check_hex_file_version)
 
         self.batch_pbar_lbl = QLabel("Flash Xmega.")
         self.batch_pbar_lbl.setFont(self.label_font)
         self.batch_pbar = QProgressBar()
 
         self.xmega_disconnect_lbl = QLabel("Remove Xmega programmer from "
-                                           "connector J2. Ensure serial port "
-                                           "is connected in the serial menu.")
+                                           "connector J1.")
         self.xmega_disconnect_lbl.setFont(self.label_font)
         # self.xmega_disconnect_lbl.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
         self.xmega_disconnect_chkbx = QCheckBox()
@@ -76,6 +84,13 @@ class Program(QWizardPage):
         self.watchdog_pbar = QProgressBar()
         self.watchdog_pbar.setRange(0, 1)
 
+        self.one_wire_start_btn = QPushButton("Start 1-Wire Programming")
+        self.one_wire_start_btn.clicked.connect(self.start_one_wire_programming)
+
+        self.one_wire_pbar_lbl = QLabel("Program OneWire Master")
+        self.one_wire_pbar_lbl.setFont(self.label_font)
+        self.one_wire_pbar = QProgressBar()
+
         # Layouts
         self.batch_pbar_layout = QVBoxLayout()
         self.batch_pbar_layout.addWidget(self.batch_pbar_lbl)
@@ -84,6 +99,10 @@ class Program(QWizardPage):
         self.watchdog_layout = QVBoxLayout()
         self.watchdog_layout.addWidget(self.watchdog_pbar_lbl)
         self.watchdog_layout.addWidget(self.watchdog_pbar)
+
+        self.one_wire_pbar_layout = QVBoxLayout()
+        self.one_wire_pbar_layout.addWidget(self.one_wire_pbar_lbl)
+        self.one_wire_pbar_layout.addWidget(self.one_wire_pbar)
 
         self.grid = QGridLayout()
         self.grid.setVerticalSpacing(40)
@@ -94,6 +113,8 @@ class Program(QWizardPage):
         self.grid.addWidget(self.xmega_disconnect_lbl, 3, 0)
         self.grid.addWidget(self.xmega_disconnect_chkbx, 3, 1)
         self.grid.addLayout(self.watchdog_layout, 4, 0)
+        self.grid.addWidget(self.one_wire_start_btn, 5, 0)
+        self.grid.addLayout(self.one_wire_pbar_layout, 6, 0)
 
         self.setLayout(self.grid)
         self.setTitle("Xmega Programming and Verification")
@@ -110,17 +131,20 @@ class Program(QWizardPage):
         self.sleep_signal.connect(self.sm.sleep)
         self.complete_signal.connect(self.completeChanged)
         self.flash_signal.connect(self.flash.flash)
-        self.version_check.connect(self.sm.version_check)
+        self.board_version_check.connect(self.sm.version_check)
 
         self.sm.version_signal.connect(self.compare_version)
         self.sm.no_version.connect(self.no_version)
+        self.sm.line_written.connect(self.update_pbar)
+        self.test_one_wire.connect(self.sm.one_wire_test)
+        self.reprogram_one_wire.connect(self.sm.reprogram_one_wire)
 
         self.flash.command_succeeded.connect(self.flash_update)
         self.flash.command_failed.connect(self.flash_failed)
         self.flash.flash_finished.connect(self.flash_finished)
         self.flash.process_error_signal.connect(self.process_error)
         self.flash.file_not_found_signal.connect(self.file_not_found)
-        self.flash.version_signal.connect(self.set_main_app_version)
+        self.flash.version_signal.connect(self.set_versions)
 
         self.threadlink.button(QWizard.NextButton).setEnabled(False)
         self.threadlink.button(QWizard.NextButton).setAutoDefault(False)
@@ -133,6 +157,9 @@ class Program(QWizardPage):
         # Flag for tracking page completion and allowing the next button
         # to be re-enabled.
         self.is_complete = False
+
+    def serial_error(self):
+        QMessageBox.warning(self, "Warning!", "Serial error!")
 
     def process_error(self):
         """Creates a QMessagebox warning for an AVR programming error."""
@@ -152,30 +179,51 @@ class Program(QWizardPage):
         # self.initializePage()
 
     def port_warning(self):
+        QMessageBox.warning(self, "Warning!", "No serial port selected!")
+
+    def port_warning_batch(self):
+        """Creates a QMessagebox warning when no serial port selected."""
+        QMessageBox.warning(self, "Warning!", "No serial port selected!")
+        self.threadlink.unchecked(self.batch_lbl,
+                       self.batch_chkbx)
+        self.batch_pbar.setRange(0, 1)
+
+    def port_warning_onewire(self):
         """Creates a QMessagebox warning when no serial port selected."""
         QMessageBox.warning(self, "Warning!", "No serial port selected!")
         self.threadlink.unchecked(self.xmega_disconnect_lbl,
                        self.xmega_disconnect_chkbx)
         self.watchdog_pbar.setRange(0, 1)
+        self.initializePage()
 
-    def set_main_app_version(self, version):
-        self.main_app_version = version
-
-    def check_version(self):
-        # Check file paths to make sure files exist.
+    def check_hex_file_version(self):
+        """Checks hex file paths to make sure files exist, finds the main app
+        hex file with the latest version and starts the version check on the
+        board."""
         self.flash.check_files()
 
-        # Check main app version
-        self.version_check.emit()
+    def set_versions(self, main_app_ver, one_wire_file, one_wire_ver):
+        """Set a variable to have the most recent version of the main app.
+        Start the check of what version the board is running."""
+        self.main_app_file_version = main_app_ver
+        self.one_wire_file_path = one_wire_file
+        self.one_wire_file_version = one_wire_ver
+
+        # Check board version.
+        self.board_version_check.emit()
 
     def compare_version(self, version: str):
-        if self.main_app_version == version:
+        """Compare file versions using packaging.version LegacyVersion and 
+        flash the board with the file if the file version is higher than the 
+        board version."""
+        if LegacyVersion(self.main_app_file_version) > LegacyVersion(version):
+            self.start_flash()
+        else:
             QMessageBox.warning(self, "Warning!", "Board and file versions"
                                 " are the same, skipping programming.")
             self.batch_pbar_lbl.setText("Complete.")
-            self.batch_pbar.setValue(6)
-        else:
-            self.start_flash()
+            self.batch_pbar.setRange(0, 1)
+            self.batch_pbar.setValue(1)
 
     def no_version(self):
         self.start_flash()
@@ -213,7 +261,7 @@ class Program(QWizardPage):
 
     def flash_finished(self):
         """Handles case where flash programming is successful."""
-
+        self.threadlink.checked(self.batch_lbl, self.batch_chkbx)
         self.xmega_disconnect_chkbx.setEnabled(True)
         self.tu.xmega_prog_status.setStyleSheet(self.threadlink.status_style_pass)
         self.tu.xmega_prog_status.setText("XMega Programming: PASS")
@@ -227,25 +275,90 @@ class Program(QWizardPage):
 
     def watchdog_handler(self, data):
         self.sm.data_ready.disconnect()
-        # self.sm.data_ready.connect(self.app_off)
-        self.watchdog_pbar.setRange(0, 1)
-        self.watchdog_pbar.setValue(1)
-        pattern = "([0-9]+\.[0-9a-zA-Z]+)"
-        try:
-            matches = re.findall(pattern, data)
-            bootloader_version = matches[0]
-            app_version = matches[1]
-        except IndexError:
+        pattern = 'firmware version "RS485 BRIDGE MAIN APP [0-9]+\.[0-9]+[a-z]"'
+        pattern_version = "([0-9]+\.[0-9]+[a-z])"
+        if not re.search(pattern, data):
             QMessageBox.warning(self, "Warning",
                                 "Error in serial data.")
-            self.report.write_data("xmega_bootloader", "", "FAIL")
-            self.report.write_data("xmega_app", "", "FAIL")
             self.watchdog_pbar.setRange(0, 1)
             self.watchdog_pbar.setValue(0)
             self.threadlink.unchecked(self.xmega_disconnect_lbl,
                            self.xmega_disconnect_chkbx)
             return
-        bootloader_version = bootloader_version.strip("\r\n")
-        app_version = app_version.strip("\r\n")
-        self.report.write_data("xmega_bootloader", bootloader_version, "PASS")
-        self.report.write_data("xmega_app", app_version, "PASS")
+        xmega_version = re.search(pattern_version, data).group()
+        self.report.write_data("xmega_app", xmega_version, "PASS")
+        self.watchdog_pbar.setRange(0, 1)
+        self.watchdog_pbar.setValue(1)
+
+    def start_one_wire_programming(self):
+        self.sm.data_ready.connect(self.one_wire_version)
+        self.test_one_wire.emit()
+        self.one_wire_pbar_lbl.setText("Checking version...")
+
+    def one_wire_version(self, data):
+        self.sm.data_ready.disconnect()
+        self.sm.data_ready.connect(self.send_hex_file)
+        pattern = "([0-9]+\.[0-9]+[a-z])"
+
+        if re.search(pattern, data):
+            one_wire_ver = re.search(pattern, data).group()
+        else:
+            QMessageBox.warning(self, "Warning!", "Bad One Wire Version!")
+            print(data)
+            return
+
+        if LegacyVersion(self.one_wire_file_version) > LegacyVersion(one_wire_ver):
+            self.reprogram_one_wire.emit()
+            self.one_wire_lbl.setText("Erasing flash. . .")
+        else:
+            QMessageBox.warning(self, "Warning!", "Board and file versions"
+                                " are the same, skipping programming.")
+            self.one_wire_pbar_lbl.setText("Complete.")
+            self.one_wire_pbar.setRange(0, 1)
+            self.one_wire_pbar.setValue(1)
+
+    def send_hex_file(self, data):
+        self.sm.data_ready.disconnect()
+        self.sm.data_ready.connect(self.data_parser)
+        self.one_wire_pbar.setRange(0, 545)
+        # Check for response from board before proceeding
+        pattern = "download hex records now..."
+        if (re.search(pattern, data)):
+            self.one_wire_lbl.setText("Programming 1-wire master. . .")
+            self.file_write_signal.emit(self.one_wire_file_path)
+        else:
+            QMessageBox.warning(self, "Xmega1", "Bad command response.")
+
+    def update_pbar(self):
+        self.pbar_value += 1
+        self.one_wire_pbar.setValue(self.pbar_value)
+
+    def data_parser(self, data):
+        self.sm.data_ready.disconnect()
+        self.sm.data_ready.connect(self.record_version)
+        pattern = "lock bits set"
+        if (re.search(pattern, data)):
+            self.one_wire_lbl.setText("Programming complete.")
+            self.one_wire_test_signal.emit()
+        else:
+            QMessageBox.warning(self, "Xmega2", "Bad command response.")
+
+    def record_version(self, data):
+        self.sm.data_ready.disconnect()
+        pattern = "([0-9]+\.[0-9a-zA-Z]+)"
+        onewire_version = re.search(pattern, data)
+        if (onewire_version):
+            onewire_version_val = onewire_version.group()
+            self.report.write_data("onewire_ver", onewire_version_val, "PASS")
+            self.one_wire_lbl.setText("Version recorded.")
+            self.tu.one_wire_prog_status.setText("1-Wire Programming: PASS")
+            self.tu.one_wire_prog_status.setStyleSheet(Threadlink.status_style_pass)
+            print(onewire_version_val)
+        else:
+            self.report.write_data("onewire_ver", "N/A", "FAIL")
+            self.tu.one_wire_prog_status.setText("Xmega Programming: FAIL")
+            self.tu.one_wire_prog_status.setStyleSheet(Threadlink.status_style_fail)
+            QMessageBox.warning(self, "XMega3", "Bad command response.")
+
+        self.is_complete = True
+        self.complete_signal.emit()

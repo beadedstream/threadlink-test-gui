@@ -9,6 +9,8 @@ class SerialManager(QObject):
     """Class that handles the serial connection."""
     data_ready = pyqtSignal(str)
     no_port_sel = pyqtSignal()
+    no_port_sel_batch = pyqtSignal()
+    no_port_sel_onewire = pyqtSignal()
     sleep_finished = pyqtSignal()
     line_written = pyqtSignal()
     flash_test_succeeded = pyqtSignal()
@@ -18,6 +20,7 @@ class SerialManager(QObject):
     port_unavailable_signal = pyqtSignal()
     version_signal = pyqtSignal(str)
     no_version = pyqtSignal()
+    serial_error_signal = pyqtSignal()
 
     def __init__(self):
         super().__init__()
@@ -30,23 +33,29 @@ class SerialManager(QObject):
         """Scan and return list of connected comm ports."""
         return serial.tools.list_ports.comports()
 
+    def rs485_write_command(self, command: str):
+        """Write a command by sending individual chars and wait for echo back,
+           because its a RS485 interface: half-duplex with no control flow.
+        """
+        for c in command:
+            self.ser.write(c.encode())
+            self.ser.flush()
+            time.sleep(0.05)
+            self.ser.read(self.ser.in_waiting)
+
+        self.ser.write(b"\r\n")
+        self.ser.flush()
+        time.sleep(0.1)
+
     @pyqtSlot(str)
     def send_command(self, command):
         """Checks connection to the serial port and sends a command."""
         if self.ser.is_open:
             try:
                 self.flush_buffers()
-                # Send individual chars and wait for echo back,
-                # because half-duplex with no control flow.
-                for c in command:
-                    self.ser.write(c.encode())
-                    self.ser.flush()
-                    time.sleep(0.05)
-                    self.ser.read(self.ser.in_waiting)
 
-                self.ser.write(b"\r\n")
-                self.ser.flush()
-                time.sleep(0.1)
+                self.rs485_write_command(command)
+
                 try:
                     response = self.ser.read_until(self.end).decode()
                     self.data_ready.emit(response)
@@ -66,17 +75,9 @@ class SerialManager(QObject):
         if self.ser.is_open:
             try:
                 self.flush_buffers()
-                # Send individual chars and wait for echo back,
-                # because half-duplex with no control flow.
-                for c in command:
-                    self.ser.write(c.encode())
-                    self.ser.flush()
-                    time.sleep(0.05)
-                    self.ser.read(self.ser.in_waiting)
 
-                self.ser.write(b"\r\n")
-                self.ser.flush()
-                time.sleep(0.1)
+                self.rs485_write_command(command)
+
                 try:
                     response = self.ser.read_until(self.end).decode()
                 except UnicodeDecodeError:
@@ -94,7 +95,7 @@ class SerialManager(QObject):
             except serial.serialutil.SerialException:
                 self.port_unavailable_signal.emit()
         else:
-            self.port_unavailable_signal.emit()
+            self.no_port_sel_batch.emit()
 
     @pyqtSlot()
     def one_wire_test(self):
@@ -103,33 +104,33 @@ class SerialManager(QObject):
             try:
                 self.flush_buffers()
 
-                self.ser.write("1-wire-test\r".encode())
-                time.sleep(1)
+                self.rs485_write_command("1-wire-test")
+                time.sleep(0.5)
                 self.ser.write(" ".encode())
                 time.sleep(0.3)
                 self.ser.write(".".encode())
                 data = self.ser.read_until(self.end).decode()
                 self.data_ready.emit(data)
             except serial.serialutil.SerialException:
-                self.no_port_sel.emit()
+                self.no_port_sel_onewire.emit()
         else:
-            self.no_port_sel.emit()
+            self.no_port_sel_onewire.emit()
 
     @pyqtSlot()
     def reprogram_one_wire(self):
         """Sends command to reprogram one wire master."""
         if self.ser.is_open:
             try:
-                self.ser.write("reprogram-1-wire-master\r\n".encode())
+                self.rs485_write_command("reprogram-1-wire-master")
                 # Wait for serial buffer to fill
                 time.sleep(5)
                 num_bytes = self.ser.in_waiting
                 data = self.ser.read(num_bytes).decode()
                 self.data_ready.emit(data)
             except serial.serialutil.SerialException:
-                self.no_port_sel.emit()
+                self.no_port_sel_onewire.emit()
         else:
-            self.no_port_sel.emit()
+            self.no_port_sel_onewire.emit()
 
     @pyqtSlot(str)
     def write_hex_file(self, file_path):
@@ -139,70 +140,18 @@ class SerialManager(QObject):
             try:
                 with open(file_path, "rb") as f:
                     for line in f:
-                        self.ser.write(line)
+                        self.rs485_write_command(line)
                         self.line_written.emit()
                         # minimum of 50 ms delay required after each line
                         time.sleep(0.060)
             except serial.serialutil.SerialException:
-                self.no_port_sel.emit()
+                self.no_port_sel_onewire.emit()
 
             time.sleep(3)
             data = self.ser.read_until(self.end).decode()
             self.data_ready.emit(data)
         else:
-            self.no_port_sel.emit()
-
-    @pyqtSlot()
-    def flash_test(self):
-        """Writes dummy data to flash, checks that it was written and then 
-        clears it."""
-        if self.ser.is_open:
-            try:
-                self.flush_buffers()
-
-                # Make sure there are no logs to start with
-                self.ser.write(b"clear\r\n")
-                self.ser.read_until(b"[Y/N]")
-                self.ser.write(b"Y")
-                self.ser.read_until(self.end)
-
-                self.ser.write(b"flash-fill 1 3 1 1 1 1\r\n")
-                self.ser.read_until(self.end)
-
-                self.ser.write(b"data\r\n")
-                data = self.ser.read_until(self.end)
-                if b"... 3 records" not in data:
-                    self.flash_test_failed.emit()
-                    return
-
-                self.ser.write(b"psoc-log-usage\r\n")
-                data = self.ser.read_until(self.end)
-                if b"used: 3" not in data:
-                    self.flash_test_failed.emit()
-                    return
-
-                self.ser.write(b"clear\r\n")
-                self.ser.read_until(b"[Y/N]")
-                self.ser.write(b"Y")
-                self.ser.read_until(self.end)
-
-                self.ser.write(b"data\r\n")
-                data = self.ser.read_until(self.end)
-                if b"No data!" not in data:
-                    self.flash_test_failed.emit()
-                    return
-
-                self.ser.write(b"psoc-log-usage\r\n")
-                data = self.ser.read_until(self.end)
-                if b"used: 0" not in data:
-                    self.flash_test_failed.emit()
-                    return
-                self.flash_test_succeeded.emit()
-
-            except serial.serialutil.SerialException:
-                self.no_port_sel.emit()
-        else:
-            self.no_port_sel.emit()
+            self.no_port_sel_onewire.emit()
 
     @pyqtSlot(str)
     def set_serial(self, serial_num):
