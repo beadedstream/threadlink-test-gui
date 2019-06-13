@@ -32,7 +32,9 @@ class Model:
             "2p5v_min": 2.38,
             "2p5v_max": 2.62,
             "1p8v_min": 1.73,
-            "1p8v_max": 1.87
+            "1p8v_max": 1.87,
+            "internal_5v_min": 4.85,
+            "internal_5v_max": 5.15
         }
         self.tac = {
             "tac1": None,
@@ -63,6 +65,10 @@ class Model:
         elif limit == "1p8v":
             return (value >= self.limits["1p8v_min"] and
                     value <= self.limits["1p8v_max"])
+
+        elif limit == "internal_5v":
+            return (value >= self.limits["internal_5v_min"] and
+                    value <= self.limits["internal_5v_max"])
 
         else:
             raise InvalidLimit
