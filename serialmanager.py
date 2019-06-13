@@ -140,7 +140,7 @@ class SerialManager(QObject):
             try:
                 with open(file_path, "rb") as f:
                     for line in f:
-                        self.rs485_write_command(line)
+                        self.ser.write(line)
                         self.line_written.emit()
                         # minimum of 50 ms delay required after each line
                         time.sleep(0.060)

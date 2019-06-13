@@ -22,6 +22,7 @@ class Program(QWizardPage):
     board_version_check = pyqtSignal()
     test_one_wire = pyqtSignal()
     reprogram_one_wire = pyqtSignal()
+    file_write_signal = pyqtSignal(str)
 
     def __init__(self, threadlink, test_utility, serial_manager, model, report):
         super().__init__()
@@ -120,6 +121,9 @@ class Program(QWizardPage):
         self.setTitle("Xmega Programming and Verification")
 
     def initializePage(self):
+        self.pbar_value = 0
+        self.xmega_disconnect_chkbx.setEnabled(False)
+
         at_path = self.tu.settings.value("atprogram_file_path")
         hex_path = Path(self.tu.settings.value("hex_files_path"))
         self.flash = avr.FlashThreadlink(at_path, hex_path)
@@ -138,6 +142,7 @@ class Program(QWizardPage):
         self.sm.line_written.connect(self.update_pbar)
         self.test_one_wire.connect(self.sm.one_wire_test)
         self.reprogram_one_wire.connect(self.sm.reprogram_one_wire)
+        self.file_write_signal.connect(self.sm.write_hex_file)
 
         self.flash.command_succeeded.connect(self.flash_update)
         self.flash.command_failed.connect(self.flash_failed)
@@ -224,6 +229,7 @@ class Program(QWizardPage):
             self.batch_pbar_lbl.setText("Complete.")
             self.batch_pbar.setRange(0, 1)
             self.batch_pbar.setValue(1)
+            self.xmega_disconnect_chkbx.setEnabled(True)
 
     def no_version(self):
         self.start_flash()
@@ -303,13 +309,12 @@ class Program(QWizardPage):
         if re.search(pattern, data):
             one_wire_ver = re.search(pattern, data).group()
         else:
-            QMessageBox.warning(self, "Warning!", "Bad One Wire Version!")
-            print(data)
-            return
+            one_wire_ver = None
 
-        if LegacyVersion(self.one_wire_file_version) > LegacyVersion(one_wire_ver):
+        if (LegacyVersion(self.one_wire_file_version) > LegacyVersion(one_wire_ver)
+            or not one_wire_ver):
             self.reprogram_one_wire.emit()
-            self.one_wire_lbl.setText("Erasing flash. . .")
+            self.one_wire_pbar_lbl.setText("Erasing flash. . .")
         else:
             QMessageBox.warning(self, "Warning!", "Board and file versions"
                                 " are the same, skipping programming.")
@@ -323,8 +328,9 @@ class Program(QWizardPage):
         self.one_wire_pbar.setRange(0, 545)
         # Check for response from board before proceeding
         pattern = "download hex records now..."
+
         if (re.search(pattern, data)):
-            self.one_wire_lbl.setText("Programming 1-wire master. . .")
+            self.one_wire_pbar_lbl.setText("Programming 1-wire master. . .")
             self.file_write_signal.emit(self.one_wire_file_path)
         else:
             QMessageBox.warning(self, "Xmega1", "Bad command response.")
@@ -338,8 +344,8 @@ class Program(QWizardPage):
         self.sm.data_ready.connect(self.record_version)
         pattern = "lock bits set"
         if (re.search(pattern, data)):
-            self.one_wire_lbl.setText("Programming complete.")
-            self.one_wire_test_signal.emit()
+            self.one_wire_pbar_lbl.setText("Programming complete.")
+            self.test_one_wire.emit()
         else:
             QMessageBox.warning(self, "Xmega2", "Bad command response.")
 
@@ -347,17 +353,18 @@ class Program(QWizardPage):
         self.sm.data_ready.disconnect()
         pattern = "([0-9]+\.[0-9a-zA-Z]+)"
         onewire_version = re.search(pattern, data)
+
         if (onewire_version):
             onewire_version_val = onewire_version.group()
             self.report.write_data("onewire_ver", onewire_version_val, "PASS")
-            self.one_wire_lbl.setText("Version recorded.")
+            self.one_wire_pbar_lbl.setText("Version recorded.")
             self.tu.one_wire_prog_status.setText("1-Wire Programming: PASS")
-            self.tu.one_wire_prog_status.setStyleSheet(Threadlink.status_style_pass)
+            self.tu.one_wire_prog_status.setStyleSheet(self.threadlink.status_style_pass)
             print(onewire_version_val)
         else:
             self.report.write_data("onewire_ver", "N/A", "FAIL")
             self.tu.one_wire_prog_status.setText("Xmega Programming: FAIL")
-            self.tu.one_wire_prog_status.setStyleSheet(Threadlink.status_style_fail)
+            self.tu.one_wire_prog_status.setStyleSheet(self.threadlink.status_style_fail)
             QMessageBox.warning(self, "XMega3", "Bad command response.")
 
         self.is_complete = True
