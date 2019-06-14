@@ -34,7 +34,7 @@ class Report:
             "5v_supply": ["5V Supply (V)", None, None],
             "2p5v": ["2.5V Output (V)", None, None],
             "1p8v": ["1.8V Supply (V)", None, None],
-            "uart_5v": ["UART 5V (V)", None, None],
+            "internal_5v": ["Internal 5V (V)", None, None],
             "xmega_bootloader": ["Xmega Bootloader Version", None, None],
             "xmega_app": ["Xmega App Version", None, None],
             "onewire_ver": ["1WireMaster Version", None, None],

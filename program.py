@@ -87,6 +87,7 @@ class Program(QWizardPage):
 
         self.one_wire_start_btn = QPushButton("Start 1-Wire Programming")
         self.one_wire_start_btn.clicked.connect(self.start_one_wire_programming)
+        self.one_wire_start_btn.setEnabled(False)
 
         self.one_wire_pbar_lbl = QLabel("Program OneWire Master")
         self.one_wire_pbar_lbl.setFont(self.label_font)
@@ -295,6 +296,7 @@ class Program(QWizardPage):
         self.report.write_data("xmega_app", xmega_version, "PASS")
         self.watchdog_pbar.setRange(0, 1)
         self.watchdog_pbar.setValue(1)
+        self.one_wire_start_btn.setEnabled(True)
 
     def start_one_wire_programming(self):
         self.sm.data_ready.connect(self.one_wire_version)
@@ -321,6 +323,8 @@ class Program(QWizardPage):
             self.one_wire_pbar_lbl.setText("Complete.")
             self.one_wire_pbar.setRange(0, 1)
             self.one_wire_pbar.setValue(1)
+            self.is_complete = True
+            self.complete_signal.emit()
 
     def send_hex_file(self, data):
         self.sm.data_ready.disconnect()
