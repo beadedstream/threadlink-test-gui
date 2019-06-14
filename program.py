@@ -320,6 +320,8 @@ class Program(QWizardPage):
         else:
             QMessageBox.warning(self, "Warning!", "Board and file versions"
                                 " are the same, skipping programming.")
+            self.report.write_data("one_wire_ver", one_wire_ver, "PASS")
+
             self.one_wire_pbar_lbl.setText("Complete.")
             self.one_wire_pbar.setRange(0, 1)
             self.one_wire_pbar.setValue(1)
@@ -360,13 +362,13 @@ class Program(QWizardPage):
 
         if (onewire_version):
             onewire_version_val = onewire_version.group()
-            self.report.write_data("onewire_ver", onewire_version_val, "PASS")
+            self.report.write_data("one_wire_ver", onewire_version_val, "PASS")
             self.one_wire_pbar_lbl.setText("Version recorded.")
             self.tu.one_wire_prog_status.setText("1-Wire Programming: PASS")
             self.tu.one_wire_prog_status.setStyleSheet(self.threadlink.status_style_pass)
             print(onewire_version_val)
         else:
-            self.report.write_data("onewire_ver", "N/A", "FAIL")
+            self.report.write_data("one_wire_ver", "N/A", "FAIL")
             self.tu.one_wire_prog_status.setText("Xmega Programming: FAIL")
             self.tu.one_wire_prog_status.setStyleSheet(self.threadlink.status_style_fail)
             QMessageBox.warning(self, "XMega3", "Bad command response.")

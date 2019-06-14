@@ -27,102 +27,92 @@ class Interfaces(QWizardPage):
 
         self.system_font = QApplication.font().family()
         self.label_font = QFont(self.system_font, 12)
+        
+        # Interfaces test widgets
+        self.tests_lbl = QLabel("Testing Interfaces.")
+        self.tests_lbl.setFont(self.label_font)
+        self.tests_pbar = QProgressBar()
 
-        # Internal 5 V test widgets
-        self.five_v_test_lbl = QLabel("Test internal 5V supply.")
-        self.five_v_test_lbl.setFont(self.label_font)
+        self.repeat_tests = QPushButton("Repeat Tests")
+        self.repeat_tests.setMaximumWidth(150)
+        self.repeat_tests.setFont(self.label_font)
+        self.repeat_tests.setStyleSheet("background-color: grey")
+        self.repeat_tests.clicked.connect(self.initializePage)
 
-        self.five_v_test_chkbx = QCheckBox()
-        self.five_v_test_chkbx.setStyleSheet("QCheckBox::indicator \
-                                                   {width: 20px; \
-                                                   height: 20px}")
-        self.five_v_test_chkbx.clicked.connect(
-            lambda: self.threadlink.checked(self.five_v_test_lbl,
-             self.five_v_test_chkbx))
-        self.five_v_test_chkbx.clicked.connect(self.test_5_v)
-
-        # TAC ID test widgets
-        self.tac_test_lbl = QLabel("Test TAC IDs.")
-        self.tac_test_lbl.setFont(self.label_font)
-
-        self.tac_test_chkbx = QCheckBox()
-        self.tac_test_chkbx.setStyleSheet("QCheckBox::indicator \
-                                                   {width: 20px; \
-                                                   height: 20px}")
-        self.tac_test_chkbx.clicked.connect(
-            lambda: self.threadlink.checked(self.tac_test_lbl,
-                self.tac_test_chkbx))
-        self.tac_test_chkbx.clicked.connect(self.test_tac)
+        # Interfaces layout
+        self.tests_layout = QVBoxLayout()
+        self.tests_layout.addWidget(self.tests_lbl)
+        self.tests_layout.addSpacing(25)
+        self.tests_layout.addWidget(self.tests_pbar)
+        self.tests_layout.addSpacing(25)
+        self.tests_layout.addWidget(self.repeat_tests)
 
         # Hall Effect test widgets
         self.hall_effect_lbl = QLabel("Hall Effect Sensor: Red LED turns"
                                     " on when magnet is brought close to unit.")
         self.hall_effect_lbl.setFont(self.label_font)
-
-        self.hall_effect_chkbx = QCheckBox()
-        self.hall_effect_chkbx.setStyleSheet("QCheckBox::indicator \
-                                                   {width: 20px; \
-                                                   height: 20px}")
-        self.hall_effect_chkbx.clicked.connect(
-            lambda: self.threadlink.checked(self.hall_effect_lbl,
-                self.hall_effect_chkbx))
+        self.hall_effect_pass_btn = QPushButton("Pass")
+        self.hall_effect_pass_btn.clicked.connect(self.hall_pass)
+        self.hall_effect_fail_btn = QPushButton("Fail")
+        self.hall_effect_fail_btn.clicked.connect(self.hall_fail)
 
         # LED test widgets
         self.led_test_lbl = QLabel("LED Test: Verify the green LED is on.")
         self.led_test_lbl.setFont(self.label_font)
-
-        self.led_test_chkbx = QCheckBox()
-        self.led_test_chkbx.setStyleSheet("QCheckBox::indicator \
-                                                   {width: 20px; \
-                                                   height: 20px}")
-        self.led_test_chkbx.clicked.connect(
-            lambda: self.threadlink.checked(self.led_test_lbl,
-                self.led_test_chkbx))
-        self.led_test_chkbx.clicked.connect(self.finished)
+        self.led_test_pass_btn = QPushButton("Pass")
+        self.led_test_pass_btn.clicked.connect(self.led_pass)
+        self.led_test_fail_btn = QPushButton("Fail")
+        self.led_test_fail_btn.clicked.connect(self.led_fail)
 
         self.grid = QGridLayout()
         self.grid.setVerticalSpacing(60)
         self.grid.addWidget(QLabel(), 0, 0)
-        self.grid.addWidget(self.five_v_test_lbl, 1, 0)
-        self.grid.addWidget(self.five_v_test_chkbx, 1, 1)
-        self.grid.addWidget(self.tac_test_lbl, 2, 0)
-        self.grid.addWidget(self.tac_test_chkbx, 2, 1)
-        self.grid.addWidget(self.hall_effect_lbl, 3, 0)
-        self.grid.addWidget(self.hall_effect_chkbx, 3, 1)
-        self.grid.addWidget(self.led_test_lbl, 4, 0)
-        self.grid.addWidget(self.led_test_chkbx, 4, 1)
+        self.grid.addLayout(self.tests_layout, 1, 0)
+        self.grid.addWidget(self.hall_effect_lbl, 2, 0)
+        self.grid.addWidget(self.hall_effect_pass_btn, 2, 1)
+        self.grid.addWidget(self.hall_effect_fail_btn, 2, 2)
+        self.grid.addWidget(self.led_test_lbl, 3, 0)
+        self.grid.addWidget(self.led_test_pass_btn, 3, 1)
+        self.grid.addWidget(self.led_test_fail_btn, 3, 2)
 
         self.setLayout(self.grid)
         self.setTitle("Interfaces and LED Test")
 
     def initializePage(self):
+        self.is_complete = False
+
         self.command_signal.connect(self.sm.send_command)
         self.complete_signal.connect(self.completeChanged)
         self.sm.data_ready.disconnect()
         self.sm.data_ready.connect(self.handle_5v_data)
-        self.is_complete = False
+        
+        self.repeat_tests.setEnabled(False)
+        
+        self.tests_pbar.setRange(0, 2)
+        self.pbar_value = 0
 
-    def test_5_v(self):
         self.command_signal.emit("5v")
+        self.tests_lbl.setText("Testing 5v...")
 
     def handle_5v_data(self, data):
+        self.sm.data_ready.disconnect()
+        self.sm.data_ready.connect(self.handle_tac_data)
         p = "([0-9]+\.[0-9]+)"
         result = re.search(p, data)
         if result:
             value = float(result.group())
+            if self.model.compare_to_limit("internal_5v", value):
+                self.report.write_data("internal_5v", value, "PASS")
+            else:
+                self.report.write_data("internal_5v", value, "FAIL")
         else:
             QMessageBox.warning(self, "Warning!", "Bad 5 V data!")
-            return
+            self.report.write_data("internal_5v", "", "FAIL")
 
-        if self.model.compare_to_limit("internal_5v", value):
-            self.report.write_data("internal_5v", value, "PASS")
-        else:
-            self.report.write_data("internal_5v", value, "FAIL")
-
-    def test_tac(self):
-        self.sm.data_ready.disconnect()
-        self.sm.data_ready.connect(self.handle_tac_data)
+        self.pbar_value +=1
+        self.tests_pbar.setValue(self.pbar_value)
         self.command_signal.emit("tac-get-info")
+        self.tests_lbl.setText("Testing TAC ID...")
 
     def handle_tac_data(self, data):
         p = "([0-9a-f]{8})"
@@ -135,6 +125,33 @@ class Interfaces(QWizardPage):
         else:
             self.report.write_data("tac_connected", "", "FAIL")
             self.report.write_data("eeprom_sn", "", "FAIL")
+
+        self.pbar_value += 1
+        self.tests_pbar.setValue(self.pbar_value)
+        self.tests_lbl.setText("Complete.")
+        self.repeat_tests.setEnabled(True)
+
+    def hall_pass(self):
+        self.report.write_data("hall_effect", "", "PASS")
+        self.hall_effect_pass_btn.setEnabled(False)
+        self.hall_effect_fail_btn.setEnabled(False)
+
+    def hall_fail(self):
+        self.report.write_data("hall_effect", "", "FAIL")
+        self.hall_effect_pass_btn.setEnabled(False)
+        self.hall_effect_fail_btn.setEnabled(False)
+
+    def led_pass(self):
+        self.report.write_data("led_test", "", "PASS")
+        self.led_test_pass_btn.setEnabled(False)
+        self.led_test_fail_btn.setEnabled(False)
+        self.finished()
+
+    def led_fail(self):
+        self.report.write_data("led_test", "", "FAIL")
+        self.led_test_pass_btn.setEnabled(False)
+        self.led_test_fail_btn.setEnabled(False)
+        self.finished()
 
     def finished(self):
         self.is_complete = True
