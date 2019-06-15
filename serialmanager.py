@@ -21,6 +21,7 @@ class SerialManager(QObject):
     version_signal = pyqtSignal(str)
     no_version = pyqtSignal()
     serial_error_signal = pyqtSignal()
+    file_not_found_signal = pyqtSignal(str)
 
     def __init__(self):
         super().__init__()
@@ -146,6 +147,9 @@ class SerialManager(QObject):
                         time.sleep(0.060)
             except serial.serialutil.SerialException:
                 self.no_port_sel_onewire.emit()
+            except FileNotFoundError:
+                self.file_not_found_signal.emit(file_path)
+
 
             time.sleep(3)
             data = self.ser.read_until(self.end).decode()

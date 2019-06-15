@@ -141,6 +141,7 @@ class Program(QWizardPage):
         self.sm.version_signal.connect(self.compare_version)
         self.sm.no_version.connect(self.no_version)
         self.sm.line_written.connect(self.update_pbar)
+        self.sm.file_not_found_signal.connect(self.file_not_found)
         self.test_one_wire.connect(self.sm.one_wire_test)
         self.reprogram_one_wire.connect(self.sm.reprogram_one_wire)
         self.file_write_signal.connect(self.sm.write_hex_file)
@@ -175,9 +176,9 @@ class Program(QWizardPage):
         self.batch_pbar_lbl.setText("Flash Xmega")
         self.initializePage()
 
-    def file_not_found(self):
+    def file_not_found(self, file):
         """Creates a QMessageBox warning when config files are not set."""
-        QMessageBox.warning(self, "Warning!", "File not found! Check "
+        QMessageBox.warning(self, "Warning!", f"File {file} not found! Check "
                             "configuration settings for correct file "
                             "locations.")
         self.threadlink.unchecked(self.batch_lbl, self.batch_chkbx)
@@ -227,6 +228,10 @@ class Program(QWizardPage):
         else:
             QMessageBox.warning(self, "Warning!", "Board and file versions"
                                 " are the same, skipping programming.")
+            self.tu.xmega_prog_status.setStyleSheet(
+                self.threadlink.status_style_pass)
+            self.tu.xmega_prog_status.setText("XMega Programming: PASS")
+
             self.batch_pbar_lbl.setText("Complete.")
             self.batch_pbar.setRange(0, 1)
             self.batch_pbar.setValue(1)
@@ -263,7 +268,8 @@ class Program(QWizardPage):
                             f"Command {cmd_text} failed!")
         self.threadlink.unchecked(self.batch_lbl, self.batch_chkbx)
         self.batch_pbar_lbl.setText("Flash Xmega")
-        self.tu.xmega_prog_status.setStyleSheet(self.threadlink.status_style_fail)
+        self.tu.xmega_prog_status.setStyleSheet(
+            self.threadlink.status_style_fail)
         self.tu.xmega_prog_status.setText("XMega Programming: FAIL")
 
     def flash_finished(self):
@@ -321,7 +327,9 @@ class Program(QWizardPage):
             QMessageBox.warning(self, "Warning!", "Board and file versions"
                                 " are the same, skipping programming.")
             self.report.write_data("one_wire_ver", one_wire_ver, "PASS")
-
+            self.tu.one_wire_prog_status.setText("1-Wire Programming: PASS")
+            self.tu.one_wire_prog_status.setStyleSheet(
+                self.threadlink.status_style_pass)
             self.one_wire_pbar_lbl.setText("Complete.")
             self.one_wire_pbar.setRange(0, 1)
             self.one_wire_pbar.setValue(1)
@@ -365,12 +373,14 @@ class Program(QWizardPage):
             self.report.write_data("one_wire_ver", onewire_version_val, "PASS")
             self.one_wire_pbar_lbl.setText("Version recorded.")
             self.tu.one_wire_prog_status.setText("1-Wire Programming: PASS")
-            self.tu.one_wire_prog_status.setStyleSheet(self.threadlink.status_style_pass)
+            self.tu.one_wire_prog_status.setStyleSheet(
+                self.threadlink.status_style_pass)
             print(onewire_version_val)
         else:
             self.report.write_data("one_wire_ver", "N/A", "FAIL")
             self.tu.one_wire_prog_status.setText("Xmega Programming: FAIL")
-            self.tu.one_wire_prog_status.setStyleSheet(self.threadlink.status_style_fail)
+            self.tu.one_wire_prog_status.setStyleSheet(
+                self.threadlink.status_style_fail)
             QMessageBox.warning(self, "XMega3", "Bad command response.")
 
         self.is_complete = True

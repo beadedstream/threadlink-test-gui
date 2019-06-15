@@ -11,7 +11,7 @@ class FlashThreadlink(QObject):
     command_failed = pyqtSignal(str)
     flash_finished = pyqtSignal()
     process_error_signal = pyqtSignal()
-    file_not_found_signal = pyqtSignal()
+    file_not_found_signal = pyqtSignal(str)
     version_signal = pyqtSignal(str, str, str)
 
     def __init__(self, atprogram_path, hex_files_path):
@@ -30,18 +30,18 @@ class FlashThreadlink(QObject):
     def check_files(self):
 
         if not self.boot_file.is_file():
-            self.file_not_found_signal.emit()
+            self.file_not_found_signal.emit(str(self.boot_file))
             return
 
         if not self.app_file.is_file():
-            self.file_not_found_signal.emit()
+            self.file_not_found_signal.emit(str(self.app_file))
             return
 
         main_files = list(self.hex_files_path.glob("main-app*.hex"))
         main_file, main_app_ver = FlashThreadlink.get_latest_version(main_files)
 
         if not main_file:
-            self.file_not_found_signal.emit()
+            self.file_not_found_signal.emit(str(self.main_file))
             return
 
         one_wire_files = list(self.hex_files_path.glob("1-wire-master*.hex"))

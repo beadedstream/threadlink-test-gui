@@ -83,7 +83,6 @@ class Interfaces(QWizardPage):
 
         self.command_signal.connect(self.sm.send_command)
         self.complete_signal.connect(self.completeChanged)
-        self.sm.data_ready.disconnect()
         self.sm.data_ready.connect(self.handle_5v_data)
         
         self.repeat_tests.setEnabled(False)
@@ -101,13 +100,21 @@ class Interfaces(QWizardPage):
         result = re.search(p, data)
         if result:
             value = float(result.group())
+            self.tu.internal_5v_status.setText(f"Internal 5V: {value} V")
             if self.model.compare_to_limit("internal_5v", value):
                 self.report.write_data("internal_5v", value, "PASS")
+                self.tu.internal_5v_status.setStyleSheet(
+                    self.threadlink.status_style_pass)
             else:
                 self.report.write_data("internal_5v", value, "FAIL")
+                self.tu.internal_5v_status.setStyleSheet(
+                    self.threadlink.status_style_fail)
         else:
             QMessageBox.warning(self, "Warning!", "Bad 5 V data!")
             self.report.write_data("internal_5v", "", "FAIL")
+            self.tu.internal_5v_status.setText(f"Internal 5V: NO DATA")
+            self.tu.internal_5v_status.setStyleSheet(
+                self.threadlink.status_style_fail)
 
         self.pbar_value +=1
         self.tests_pbar.setValue(self.pbar_value)
@@ -115,16 +122,25 @@ class Interfaces(QWizardPage):
         self.tests_lbl.setText("Testing TAC ID...")
 
     def handle_tac_data(self, data):
+        self.sm.data_ready.disconnect()
         p = "([0-9a-f]{8})"
         results = re.findall(p, data)
+        print(data)
+        print(results)
         if (results 
             and len(results) == 5
             and results[0] == self.tu.settings.value("port1_tac_id")):
             self.report.write_data("tac_connected", "", "PASS")
             self.report.write_data("eeprom_sn", results[-1], "PASS")
+            self.tu.tac_id_status.setText("TAC ID: PASS")
+            self.tu.tac_id_status.setStyleSheet(
+                self.threadlink.status_style_pass)
         else:
             self.report.write_data("tac_connected", "", "FAIL")
             self.report.write_data("eeprom_sn", "", "FAIL")
+            self.tu.tac_id_status.setText("TAC ID: FAIL")
+            self.tu.tac_id_status.setStyleSheet(
+                self.threadlink.status_style_fail)
 
         self.pbar_value += 1
         self.tests_pbar.setValue(self.pbar_value)
@@ -133,22 +149,34 @@ class Interfaces(QWizardPage):
 
     def hall_pass(self):
         self.report.write_data("hall_effect", "", "PASS")
+        self.tu.hall_effect_status.setText("Hall Effect Sensor Test: PASS")
+        self.tu.hall_effect_status.setStyleSheet(
+            self.threadlink.status_style_pass)
         self.hall_effect_pass_btn.setEnabled(False)
         self.hall_effect_fail_btn.setEnabled(False)
 
     def hall_fail(self):
         self.report.write_data("hall_effect", "", "FAIL")
+        self.tu.hall_effect_status.setText("Hall Effect Sensor Test: FAIL")
+        self.tu.hall_effect_status.setStyleSheet(
+            self.threadlink.status_style_fail)
         self.hall_effect_pass_btn.setEnabled(False)
         self.hall_effect_fail_btn.setEnabled(False)
 
     def led_pass(self):
         self.report.write_data("led_test", "", "PASS")
+        self.tu.led_test_status.setText("Hall Effect Sensor Test: PASS")
+        self.tu.led_test_status.setStyleSheet(
+            self.threadlink.status_style_pass)
         self.led_test_pass_btn.setEnabled(False)
         self.led_test_fail_btn.setEnabled(False)
         self.finished()
 
     def led_fail(self):
         self.report.write_data("led_test", "", "FAIL")
+        self.tu.led_test_status.setText("Hall Effect Sensor Test: FAIL")
+        self.tu.led_test_status.setStyleSheet(
+            self.threadlink.status_style_fail)
         self.led_test_pass_btn.setEnabled(False)
         self.led_test_fail_btn.setEnabled(False)
         self.finished()
