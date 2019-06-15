@@ -311,7 +311,6 @@ class Program(QWizardPage):
 
     def one_wire_version(self, data):
         self.sm.data_ready.disconnect()
-        self.sm.data_ready.connect(self.send_hex_file)
         pattern = "([0-9]+\.[0-9]+[a-z])"
 
         if re.search(pattern, data):
@@ -322,6 +321,7 @@ class Program(QWizardPage):
         if (LegacyVersion(self.one_wire_file_version) > LegacyVersion(one_wire_ver)
             or not one_wire_ver):
             self.one_wire_pbar_lbl.setText("Erasing flash. . .")
+            self.sm.data_ready.connect(self.send_hex_file)
             self.reprogram_one_wire.emit()
         else:
             QMessageBox.warning(self, "Warning!", "Board and file versions"
@@ -338,13 +338,13 @@ class Program(QWizardPage):
 
     def send_hex_file(self, data):
         self.sm.data_ready.disconnect()
-        self.sm.data_ready.connect(self.data_parser)
         self.one_wire_pbar.setRange(0, 545)
         # Check for response from board before proceeding
         pattern = "download hex records now..."
 
         if (re.search(pattern, data)):
             self.one_wire_pbar_lbl.setText("Programming 1-wire master. . .")
+            self.sm.data_ready.connect(self.data_parser)
             self.file_write_signal.emit(self.one_wire_file_path)
         else:
             QMessageBox.warning(self, "Xmega1", "Bad command response.")
@@ -355,10 +355,10 @@ class Program(QWizardPage):
 
     def data_parser(self, data):
         self.sm.data_ready.disconnect()
-        self.sm.data_ready.connect(self.record_version)
         pattern = "lock bits set"
         if (re.search(pattern, data)):
             self.one_wire_pbar_lbl.setText("Programming complete.")
+            self.sm.data_ready.connect(self.record_version)
             self.test_one_wire.emit()
         else:
             QMessageBox.warning(self, "Xmega2", "Bad command response.")
