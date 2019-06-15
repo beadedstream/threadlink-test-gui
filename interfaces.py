@@ -168,7 +168,7 @@ class Interfaces(QWizardPage):
 
     def led_pass(self):
         self.report.write_data("led_test", "", "PASS")
-        self.tu.led_test_status.setText("Hall Effect Sensor Test: PASS")
+        self.tu.led_test_status.setText("LED Test: PASS")
         self.tu.led_test_status.setStyleSheet(
             self.threadlink.status_style_pass)
         self.led_test_pass_btn.setEnabled(False)
@@ -177,7 +177,7 @@ class Interfaces(QWizardPage):
 
     def led_fail(self):
         self.report.write_data("led_test", "", "FAIL")
-        self.tu.led_test_status.setText("Hall Effect Sensor Test: FAIL")
+        self.tu.led_test_status.setText("LED Test: FAIL")
         self.tu.led_test_status.setStyleSheet(
             self.threadlink.status_style_fail)
         self.led_test_pass_btn.setEnabled(False)
