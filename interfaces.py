@@ -83,6 +83,12 @@ class Interfaces(QWizardPage):
 
         self.command_signal.connect(self.sm.send_command)
         self.complete_signal.connect(self.completeChanged)
+
+        try:
+            self.sm.data_ready.disconnect()
+        except ValueError:
+            print("already disconnected")
+
         self.sm.data_ready.connect(self.handle_5v_data)
         
         self.repeat_tests.setEnabled(False)
@@ -90,8 +96,8 @@ class Interfaces(QWizardPage):
         self.tests_pbar.setRange(0, 2)
         self.pbar_value = 0
 
-        self.command_signal.emit("5v")
         self.tests_lbl.setText("Testing 5v...")
+        self.command_signal.emit("5v")
 
     def handle_5v_data(self, data):
         self.sm.data_ready.disconnect()
@@ -118,15 +124,12 @@ class Interfaces(QWizardPage):
 
         self.pbar_value +=1
         self.tests_pbar.setValue(self.pbar_value)
-        self.command_signal.emit("tac-get-info")
         self.tests_lbl.setText("Testing TAC ID...")
+        self.command_signal.emit("tac-get-info")
 
     def handle_tac_data(self, data):
-        self.sm.data_ready.disconnect()
         p = "([0-9a-f]{8})"
         results = re.findall(p, data)
-        print(data)
-        print(results)
         if (results 
             and len(results) == 5
             and results[0] == self.tu.settings.value("port1_tac_id")):

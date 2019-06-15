@@ -321,8 +321,8 @@ class Program(QWizardPage):
 
         if (LegacyVersion(self.one_wire_file_version) > LegacyVersion(one_wire_ver)
             or not one_wire_ver):
-            self.reprogram_one_wire.emit()
             self.one_wire_pbar_lbl.setText("Erasing flash. . .")
+            self.reprogram_one_wire.emit()
         else:
             QMessageBox.warning(self, "Warning!", "Board and file versions"
                                 " are the same, skipping programming.")
@@ -375,7 +375,6 @@ class Program(QWizardPage):
             self.tu.one_wire_prog_status.setText("1-Wire Programming: PASS")
             self.tu.one_wire_prog_status.setStyleSheet(
                 self.threadlink.status_style_pass)
-            print(onewire_version_val)
         else:
             self.report.write_data("one_wire_ver", "N/A", "FAIL")
             self.tu.one_wire_prog_status.setText("Xmega Programming: FAIL")
