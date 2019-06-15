@@ -136,7 +136,7 @@ class Setup(QWizardPage):
 
     def parse_values(self):
         """Parse the input values and check their validity."""
-
+        self.submit_button.setEnabled(False)
         limits = ["input_i", "5v_supply", "2p5v", "1p8v"]
         values = []
         try:

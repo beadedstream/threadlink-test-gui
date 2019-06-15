@@ -25,6 +25,9 @@ class Interfaces(QWizardPage):
         self.report = report
         self.model = model
 
+        self.command_signal.connect(self.sm.send_command)
+        self.complete_signal.connect(self.completeChanged)
+
         self.system_font = QApplication.font().family()
         self.label_font = QFont(self.system_font, 12)
         
@@ -81,29 +84,20 @@ class Interfaces(QWizardPage):
     def initializePage(self):
         self.is_complete = False
 
-        self.command_signal.connect(self.sm.send_command)
-        self.complete_signal.connect(self.completeChanged)
-
-        try:
-            self.sm.data_ready.disconnect()
-        except ValueError:
-            print("already disconnected")
-
-        self.sm.data_ready.connect(self.handle_5v_data)
-        
         self.repeat_tests.setEnabled(False)
         
         self.tests_pbar.setRange(0, 2)
         self.pbar_value = 0
 
         self.tests_lbl.setText("Testing 5v...")
+        self.sm.data_ready.connect(self.handle_5v_data)
         self.command_signal.emit("5v")
 
     def handle_5v_data(self, data):
         self.sm.data_ready.disconnect()
-        self.sm.data_ready.connect(self.handle_tac_data)
         p = "([0-9]+\.[0-9]+)"
         result = re.search(p, data)
+
         if result:
             value = float(result.group())
             self.tu.internal_5v_status.setText(f"Internal 5V: {value} V")
@@ -125,11 +119,14 @@ class Interfaces(QWizardPage):
         self.pbar_value +=1
         self.tests_pbar.setValue(self.pbar_value)
         self.tests_lbl.setText("Testing TAC ID...")
+        self.sm.data_ready.connect(self.handle_tac_data)
         self.command_signal.emit("tac-get-info")
 
     def handle_tac_data(self, data):
+        self.sm.data_ready.disconnect()
         p = "([0-9a-f]{8})"
         results = re.findall(p, data)
+
         if (results 
             and len(results) == 5
             and results[0] == self.tu.settings.value("port1_tac_id")):
