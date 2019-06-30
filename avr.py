@@ -55,7 +55,7 @@ class FlashThreadlink(QObject):
         prog_boot = [self.atprogram_path,
                      "-t", "avrispmk2",
                      "-i", "pdi",
-                     "-d", "atxmega256a3",
+                     "-d", "atxmega128a4u",
                      "program",
                      "--flash", "-f", str(self.boot_file),
                      "--format", "hex",

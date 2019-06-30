@@ -67,19 +67,6 @@ class Program(QWizardPage):
         self.batch_pbar_lbl.setFont(self.label_font)
         self.batch_pbar = QProgressBar()
 
-        self.xmega_disconnect_lbl = QLabel("Remove Xmega programmer from "
-                                           "connector J1.")
-        self.xmega_disconnect_lbl.setFont(self.label_font)
-        # self.xmega_disconnect_lbl.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
-        self.xmega_disconnect_chkbx = QCheckBox()
-        self.xmega_disconnect_chkbx.setStyleSheet("QCheckBox::indicator \
-                                                   {width: 20px; \
-                                                   height: 20px}")
-        self.xmega_disconnect_chkbx.clicked.connect(
-            lambda: self.threadlink.checked(self.xmega_disconnect_lbl,
-                                 self.xmega_disconnect_chkbx))
-        self.xmega_disconnect_chkbx.clicked.connect(self.start_uart_tests)
-
         self.watchdog_pbar_lbl = QLabel("Resetting watchdog...")
         self.watchdog_pbar_lbl.setFont(self.label_font)
         self.watchdog_pbar = QProgressBar()
@@ -112,18 +99,15 @@ class Program(QWizardPage):
         self.grid.addWidget(self.batch_lbl, 1, 0)
         self.grid.addWidget(self.batch_chkbx, 1, 1)
         self.grid.addLayout(self.batch_pbar_layout, 2, 0)
-        self.grid.addWidget(self.xmega_disconnect_lbl, 3, 0)
-        self.grid.addWidget(self.xmega_disconnect_chkbx, 3, 1)
-        self.grid.addLayout(self.watchdog_layout, 4, 0)
-        self.grid.addWidget(self.one_wire_start_btn, 5, 0)
-        self.grid.addLayout(self.one_wire_pbar_layout, 6, 0)
+        self.grid.addLayout(self.watchdog_layout, 3, 0)
+        self.grid.addWidget(self.one_wire_start_btn, 4, 0)
+        self.grid.addLayout(self.one_wire_pbar_layout, 5, 0)
 
         self.setLayout(self.grid)
         self.setTitle("Xmega Programming and Verification")
 
     def initializePage(self):
         self.pbar_value = 0
-        self.xmega_disconnect_chkbx.setEnabled(False)
 
         at_path = self.tu.settings.value("atprogram_file_path")
         hex_path = Path(self.tu.settings.value("hex_files_path"))
@@ -155,7 +139,6 @@ class Program(QWizardPage):
 
         self.threadlink.button(QWizard.NextButton).setEnabled(False)
         self.threadlink.button(QWizard.NextButton).setAutoDefault(False)
-        # self.xmega_disconnect_chkbx.setEnabled(False)
 
         self.batch_pbar.setValue(0)
 
@@ -198,8 +181,6 @@ class Program(QWizardPage):
     def port_warning_onewire(self):
         """Creates a QMessagebox warning when no serial port selected."""
         QMessageBox.warning(self, "Warning!", "No serial port selected!")
-        self.threadlink.unchecked(self.xmega_disconnect_lbl,
-                       self.xmega_disconnect_chkbx)
         self.watchdog_pbar.setRange(0, 1)
         self.initializePage()
 
@@ -226,8 +207,8 @@ class Program(QWizardPage):
         if LegacyVersion(self.main_app_file_version) > LegacyVersion(version):
             self.start_flash()
         else:
-            QMessageBox.warning(self, "Warning!", "Board and file versions"
-                                " are the same, skipping programming.")
+            QMessageBox.warning(self, "Warning!", "File version is not newer "
+                                "than board version!")
             self.tu.xmega_prog_status.setStyleSheet(
                 self.threadlink.status_style_pass)
             self.tu.xmega_prog_status.setText("XMega Programming: PASS")
@@ -235,7 +216,6 @@ class Program(QWizardPage):
             self.batch_pbar_lbl.setText("Complete.")
             self.batch_pbar.setRange(0, 1)
             self.batch_pbar.setValue(1)
-            self.xmega_disconnect_chkbx.setEnabled(True)
 
     def no_version(self):
         self.start_flash()
@@ -275,33 +255,32 @@ class Program(QWizardPage):
     def flash_finished(self):
         """Handles case where flash programming is successful."""
         self.threadlink.checked(self.batch_lbl, self.batch_chkbx)
-        self.xmega_disconnect_chkbx.setEnabled(True)
         self.tu.xmega_prog_status.setStyleSheet(self.threadlink.status_style_pass)
         self.tu.xmega_prog_status.setText("XMega Programming: PASS")
         self.flash_thread.quit()
         self.flash_thread.wait()
+        self.start_watchdog_reset()
 
-    def start_uart_tests(self):
+    def start_watchdog_reset(self):
         self.sm.data_ready.connect(self.watchdog_handler)
         self.watchdog_pbar.setRange(0, 0)
         self.command_signal.emit("watchdog")
 
     def watchdog_handler(self, data):
         self.sm.data_ready.disconnect()
-        pattern = 'firmware version "RS485 BRIDGE MAIN APP [0-9]+\.[0-9]+[a-z]"'
-        pattern_version = "([0-9]+\.[0-9]+[a-z])"
+        pattern = r'firmware version "RS485 BRIDGE MAIN APP [0-9]+\.[0-9]+[a-z]"'
+        pattern_version = r"([0-9]+\.[0-9]+[a-z])"
         if not re.search(pattern, data):
             QMessageBox.warning(self, "Warning",
                                 "Error in serial data.")
             self.watchdog_pbar.setRange(0, 1)
             self.watchdog_pbar.setValue(0)
-            self.threadlink.unchecked(self.xmega_disconnect_lbl,
-                           self.xmega_disconnect_chkbx)
             return
         xmega_version = re.search(pattern_version, data).group()
         self.report.write_data("xmega_app", xmega_version, "PASS")
         self.watchdog_pbar.setRange(0, 1)
         self.watchdog_pbar.setValue(1)
+        self.watchdog_pbar_lbl.setText("Complete.")
         self.one_wire_start_btn.setEnabled(True)
 
     def start_one_wire_programming(self):
@@ -311,7 +290,7 @@ class Program(QWizardPage):
 
     def one_wire_version(self, data):
         self.sm.data_ready.disconnect()
-        pattern = "([0-9]+\.[0-9]+[a-z])"
+        pattern = r"([0-9]+\.[0-9]+[a-z])"
 
         if re.search(pattern, data):
             one_wire_ver = re.search(pattern, data).group()
@@ -338,7 +317,13 @@ class Program(QWizardPage):
 
     def send_hex_file(self, data):
         self.sm.data_ready.disconnect()
-        self.one_wire_pbar.setRange(0, 545)
+
+        # Get file length
+        count = 0
+        with open(self.one_wire_file_path, "r") as f:
+            for line in f:
+                count += 1
+        self.one_wire_pbar.setRange(0, count)
         # Check for response from board before proceeding
         pattern = "download hex records now..."
 
@@ -365,7 +350,7 @@ class Program(QWizardPage):
 
     def record_version(self, data):
         self.sm.data_ready.disconnect()
-        pattern = "([0-9]+\.[0-9a-zA-Z]+)"
+        pattern = r"([0-9]+\.[0-9a-zA-Z]+)"
         onewire_version = re.search(pattern, data)
 
         if (onewire_version):

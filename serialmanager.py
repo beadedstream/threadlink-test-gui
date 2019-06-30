@@ -72,7 +72,7 @@ class SerialManager(QObject):
     @pyqtSlot()
     def version_check(self):
         command = "version"
-        p = "[0-9]+\.[0-9]+[a-z]"
+        p = r"[0-9]+\.[0-9]+[a-z]"
         if self.ser.is_open:
             try:
                 self.flush_buffers()
