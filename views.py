@@ -47,9 +47,6 @@ class ThreadlinkUtility(QMainWindow):
 
         settings_defaults = {
             "port1_tac_id": "",
-            "port2_tac_id": "",
-            "port3_tac_id": "",
-            "port4_tac_id": "",
             "hex_files_path": "/path/to/hex/files",
             "report_file_path": "/path/to/report/folder",
             "atprogram_file_path": "/path/to/atprogram.exe"
@@ -389,25 +386,10 @@ class ThreadlinkUtility(QMainWindow):
         port1_lbl = QLabel("Port 1 TAC ID:")
         port1_lbl.setFont(self.config_font)
         self.port1_tac_id = QLineEdit(self.settings.value("port1_tac_id"))
-        port2_lbl = QLabel("Port 2 TAC ID:")
-        port2_lbl.setFont(self.config_font)
-        self.port2_tac_id = QLineEdit(self.settings.value("port2_tac_id"))
-        port3_lbl = QLabel("Port 3 TAC ID:")
-        port3_lbl.setFont(self.config_font)
-        self.port3_tac_id = QLineEdit(self.settings.value("port3_tac_id"))
-        port4_lbl = QLabel("Port 4 TAC ID:")
-        port4_lbl.setFont(self.config_font)
-        self.port4_tac_id = QLineEdit(self.settings.value("port4_tac_id"))
 
         port_layout = QGridLayout()
         port_layout.addWidget(port1_lbl, 0, 0)
         port_layout.addWidget(self.port1_tac_id, 0, 1)
-        port_layout.addWidget(port2_lbl, 1, 0)
-        port_layout.addWidget(self.port2_tac_id, 1, 1)
-        port_layout.addWidget(port3_lbl, 2, 0)
-        port_layout.addWidget(self.port3_tac_id, 2, 1)
-        port_layout.addWidget(port4_lbl, 3, 0)
-        port_layout.addWidget(self.port4_tac_id, 3, 1)
 
         port_group = QGroupBox("TAC IDs")
         port_group.setLayout(port_layout)
@@ -527,25 +509,20 @@ class ThreadlinkUtility(QMainWindow):
     def apply_settings(self):
         """Read user inputs and apply settings."""
 
-        tac_ports = {
-            "port1_tac_id": self.port1_tac_id,
-            "port2_tac_id": self.port2_tac_id,
-            "port3_tac_id": self.port3_tac_id,
-            "port4_tac_id": self.port4_tac_id
-        }
+        p = r"([a-fA-F0-9]){8}"
 
-        for key, tac_port in tac_ports.items():
-            p = r"([a-fA-F0-9]){8}"
-            if (re.fullmatch(p, tac_port.text())):
-                self.settings.setValue(key, tac_port.text())
+        port1_value = self.port1_tac_id.text()
 
-            else:
-                QMessageBox.warning(self.settings_widget,
-                                    "Warning!",
-                                    f"Bad TAC ID on Port {key[4]}!\n"
-                                    "IDs are 8 digit hex values.\n"
-                                    "E.g.: 000a5296")
-                return
+        if re.fullmatch(p, port1_value):
+            self.settings.setValue("port1_tac_id", port1_value)
+
+        else:
+            QMessageBox.warning(self.settings_widget,
+                                "Warning!",
+                                f"Bad TAC ID!\n"
+                                "IDs are 8 digit hex values.\n"
+                                "E.g.: 000a5296")
+            return
 
         self.settings.setValue("hex_files_path", self.hex_path_lbl.text())
         self.settings.setValue("report_file_path", self.report_path_lbl.text())
