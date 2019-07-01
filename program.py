@@ -72,10 +72,6 @@ class Program(QWizardPage):
         self.watchdog_pbar = QProgressBar()
         self.watchdog_pbar.setRange(0, 1)
 
-        self.one_wire_start_btn = QPushButton("Start 1-Wire Programming")
-        self.one_wire_start_btn.clicked.connect(self.start_one_wire_programming)
-        self.one_wire_start_btn.setEnabled(False)
-
         self.one_wire_pbar_lbl = QLabel("Program OneWire Master")
         self.one_wire_pbar_lbl.setFont(self.label_font)
         self.one_wire_pbar = QProgressBar()
@@ -94,14 +90,13 @@ class Program(QWizardPage):
         self.one_wire_pbar_layout.addWidget(self.one_wire_pbar)
 
         self.grid = QGridLayout()
-        self.grid.setVerticalSpacing(40)
+        self.grid.setVerticalSpacing(75)
         self.grid.addWidget(QLabel(), 0, 0)
         self.grid.addWidget(self.batch_lbl, 1, 0)
         self.grid.addWidget(self.batch_chkbx, 1, 1)
         self.grid.addLayout(self.batch_pbar_layout, 2, 0)
         self.grid.addLayout(self.watchdog_layout, 3, 0)
-        self.grid.addWidget(self.one_wire_start_btn, 4, 0)
-        self.grid.addLayout(self.one_wire_pbar_layout, 5, 0)
+        self.grid.addLayout(self.one_wire_pbar_layout, 4, 0)
 
         self.setLayout(self.grid)
         self.setTitle("Xmega Programming and Verification")
@@ -282,7 +277,7 @@ class Program(QWizardPage):
         self.watchdog_pbar.setRange(0, 1)
         self.watchdog_pbar.setValue(1)
         self.watchdog_pbar_lbl.setText("Complete.")
-        self.one_wire_start_btn.setEnabled(True)
+        self.start_one_wire_programming()
 
     def start_one_wire_programming(self):
         self.sm.data_ready.connect(self.one_wire_version)
