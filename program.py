@@ -49,7 +49,7 @@ class Program(QWizardPage):
                                "prog_app": "Programming main-app...",
                                "prog_main": "Writing fuses...",
                                "write_fuses": "Writing lockbits...",
-                               "write_lockbits": "Complete!"}
+                               "write_lockbits": "Complete."}
 
         # Widgets
         self.batch_lbl = QLabel("Connect AVR programmer to board and ensure "
@@ -154,6 +154,8 @@ class Program(QWizardPage):
                             " AVR connection!")
         self.threadlink.unchecked(self.batch_lbl, self.batch_chkbx)
         self.batch_pbar_lbl.setText("Flash Xmega")
+        self.flash_thread.quit()
+        self.flash_thread.wait()
         self.initializePage()
 
     def file_not_found(self, file):
@@ -163,6 +165,9 @@ class Program(QWizardPage):
                             "locations.")
         self.threadlink.unchecked(self.batch_lbl, self.batch_chkbx)
         self.batch_pbar_lbl.setText("Flash Xmega")
+        self.flash_thread.quit()
+        self.flash_thread.wait()
+        self.initializePage()
 
     def port_warning(self):
         QMessageBox.warning(self, "Warning!", "No serial port selected!")
@@ -178,6 +183,8 @@ class Program(QWizardPage):
         """Creates a QMessagebox warning when no serial port selected."""
         QMessageBox.warning(self, "Warning!", "No serial port selected!")
         self.watchdog_pbar.setRange(0, 1)
+        self.flash_thread.quit()
+        self.flash_thread.wait()
         self.initializePage()
 
     def check_hex_file_version(self):

@@ -1,9 +1,10 @@
 import csv
 from os import path
 from datetime import datetime as dt
+from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot
 
 
-class Report:
+class Report(QObject):
     """Test Report class. Tracks status of tests and creates test report.
     
     Instance Variables
@@ -17,8 +18,13 @@ class Report:
     set_file_location   -- Sets file path for report location.
     generate_report     -- Generates report and saves to path location.
     """
+    write_error_signal = pyqtSignal()
+    file_not_found_signal = pyqtSignal()
+    generic_error_signal = pyqtSignal()
 
     def __init__(self):
+        super().__init__()
+
         today = dt.now()
         self.timestamp = None
         self.date = f"{today.day:02d}-{today.month:02d}-{today.year}"
@@ -83,11 +89,16 @@ class Report:
                 break
             self.test_result = "PASS"
 
-        f = open(name, "w", newline='')
-        csvwriter = csv.writer(f)
+        try:
+            with open(name, "w", newline='') as f:
+                csvwriter = csv.writer(f)
 
-        csvwriter.writerow(["Name", "Value", "Pass/Fail"])
-        csvwriter.writerow(["Test Result", "", self.test_result])
-        for _, test in self.data.items():
-            csvwriter.writerow([test[0], test[1], test[2]])
-        f.close()
+                csvwriter.writerow(["Name", "Value", "Pass/Fail"])
+                csvwriter.writerow(["Test Result", "", self.test_result])
+                for _, test in self.data.items():
+                    csvwriter.writerow([test[0], test[1], test[2]])
+
+        except FileNotFoundError:
+            self.file_not_found_signal.emit()
+        except:
+            self.generic_error_signal.emit()
