@@ -201,14 +201,14 @@ class Program(QWizardPage):
         self.board_version_check.emit()
 
     def compare_version(self, version: str):
-        """Compare file versions using packaging.version LegacyVersion and 
-        flash the board with the file if the file version is higher than the 
-        board version."""
+        """Compare main app file version and board version using 
+        packaging.version LegacyVersion and flash the board with the file if
+        the file version is higher than the board version."""
         if LegacyVersion(self.main_app_file_version) > LegacyVersion(version):
             self.start_flash()
         else:
             QMessageBox.warning(self, "Warning!", "File version is not newer "
-                                "than board version!")
+                                "than board version; skipping...")
             self.tu.xmega_prog_status.setStyleSheet(
                 self.threadlink.status_style_pass)
             self.tu.xmega_prog_status.setText("XMega Programming: PASS")
@@ -216,6 +216,7 @@ class Program(QWizardPage):
             self.batch_pbar_lbl.setText("Complete.")
             self.batch_pbar.setRange(0, 1)
             self.batch_pbar.setValue(1)
+            self.start_watchdog_reset()
 
     def no_version(self):
         self.start_flash()
