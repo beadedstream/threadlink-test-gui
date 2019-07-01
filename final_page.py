@@ -38,17 +38,11 @@ class FinalPage(QWizardPage):
                                      "fixture.")
         self.break_down_lbl.setFont(self.label_font)
         
-        self.report_location_lbl = QLabel(
-            f"Report is available at {report_file_path}.")
-        self.report_location_lbl.setFont(self.label_font)
-
         self.layout = QVBoxLayout()
         self.layout.addStretch()
         self.layout.addWidget(self.test_status_labl)
         self.layout.addSpacing(25)
         self.layout.addWidget(self.break_down_lbl)
-        self.layout.addSpacing(25)
-        self.layout.addWidget(self.report_location_lbl)
         self.layout.addStretch()
         self.layout.setAlignment(Qt.AlignHCenter)
         self.setLayout(self.layout)

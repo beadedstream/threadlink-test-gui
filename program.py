@@ -111,6 +111,8 @@ class Program(QWizardPage):
         self.flash.moveToThread(self.flash_thread)
         self.flash_thread.start()
 
+        self.flash.set_commands()
+
         self.command_signal.connect(self.sm.send_command)
         self.sleep_signal.connect(self.sm.sleep)
         self.complete_signal.connect(self.completeChanged)
@@ -161,7 +163,6 @@ class Program(QWizardPage):
                             "locations.")
         self.threadlink.unchecked(self.batch_lbl, self.batch_chkbx)
         self.batch_pbar_lbl.setText("Flash Xmega")
-        # self.initializePage()
 
     def port_warning(self):
         QMessageBox.warning(self, "Warning!", "No serial port selected!")
@@ -184,6 +185,7 @@ class Program(QWizardPage):
         hex file with the latest version and starts the version check on the
         board."""
         self.flash.check_files()
+        self.flash.set_commands()
 
     def set_versions(self, main_app_ver, one_wire_file, one_wire_ver):
         """Set a variable to have the most recent version of the main app.
