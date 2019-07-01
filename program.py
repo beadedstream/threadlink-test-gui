@@ -149,7 +149,7 @@ class Program(QWizardPage):
     def process_error(self):
         """Creates a QMessagebox warning for an AVR programming error."""
         QMessageBox.warning(self, "Warning!", "Programming Error: Check" 
-                            " AVR connection and hex files location!")
+                            " AVR connection!")
         self.threadlink.unchecked(self.batch_lbl, self.batch_chkbx)
         self.batch_pbar_lbl.setText("Flash Xmega")
         self.initializePage()
@@ -299,8 +299,8 @@ class Program(QWizardPage):
             self.sm.data_ready.connect(self.send_hex_file)
             self.reprogram_one_wire.emit()
         else:
-            QMessageBox.warning(self, "Warning!", "Board and file versions"
-                                " are the same, skipping programming.")
+            QMessageBox.warning(self, "Warning!", "File version is not newer "
+                                "than board version; skipping...")
             self.report.write_data("one_wire_ver", one_wire_ver, "PASS")
             self.tu.one_wire_prog_status.setText("1-Wire Programming: PASS")
             self.tu.one_wire_prog_status.setStyleSheet(

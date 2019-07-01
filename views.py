@@ -316,7 +316,7 @@ class ThreadlinkUtility(QMainWindow):
         self.output_2p5v_status = QLabel("2.5V Output: _____V")
         self.supply_1p8v_status = QLabel("1.8V Supply: _____V")
         self.xmega_prog_status = QLabel("XMega Programming: _____")
-        self.one_wire_prog_status = QLabel("1-Wire Master Programming:_____")
+        self.one_wire_prog_status = QLabel("1-Wire Programming:_____")
         self.internal_5v_status = QLabel("Internal 5V: _____V")
         self.tac_id_status = QLabel("TAC ID: _____")
         self.hall_effect_status = QLabel("Hall Effect Sensor Test:_____")

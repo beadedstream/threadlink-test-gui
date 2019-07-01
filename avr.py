@@ -132,7 +132,7 @@ class FlashThreadlink(QObject):
         current_filename = None
 
         for name in filenames:
-            p = "([0-9]+\.[0-9]+[a-z])"
+            p = r"([0-9]+\.[0-9]+[a-z])"
             try:
                 version = re.search(p, str(name)).group()
             except AttributeError:
