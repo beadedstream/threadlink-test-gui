@@ -148,7 +148,7 @@ class SerialManager(QObject):
             except serial.serialutil.SerialException:
                 self.no_port_sel_onewire.emit()
             except FileNotFoundError:
-                self.file_not_found_signal.emit(file_path)
+                self.file_not_found_signal.emit("1-wire-master")
 
 
             time.sleep(3)

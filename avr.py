@@ -25,28 +25,38 @@ class FlashThreadlink(QObject):
         self.boot_file = Path.joinpath(hex_files_path, "boot-section.hex")
         self.app_file = Path.joinpath(hex_files_path, "app-section.hex")
         self.main_file = None
+        self.one_wire_file = None
         self.commands = None
 
     def check_files(self):
 
         if not self.boot_file.is_file():
-            self.file_not_found_signal.emit(str(self.boot_file))
+            self.file_not_found_signal.emit("boot-section")
             return
 
         if not self.app_file.is_file():
-            self.file_not_found_signal.emit(str(self.app_file))
+            self.file_not_found_signal.emit("app-section")
             return
 
         main_files = list(self.hex_files_path.glob("main-app*.hex"))
-        main_file, main_app_ver = FlashThreadlink.get_latest_version(main_files)
+        self.main_file, main_app_ver = FlashThreadlink.get_latest_version(main_files)
 
-        if not main_file:
-            self.file_not_found_signal.emit(str(self.main_file))
+        if not self.main_file:
+            self.file_not_found_signal.emit("main-app")
             return
 
         one_wire_files = list(self.hex_files_path.glob("1-wire-master*.hex"))
-        one_wire_file, one_wire_ver = FlashThreadlink.get_latest_version(one_wire_files)
+        self.one_wire_file, one_wire_ver = FlashThreadlink.get_latest_version(
+                                                one_wire_files)
 
+        if not self.one_wire_file:
+            self.file_not_found_signal.emit("1-wire-master")
+            return
+
+        self.version_signal.emit(main_app_ver, 
+                                 str(self.one_wire_file), one_wire_ver)
+
+    def set_commands(self):
         chip_erase = [self.atprogram_path,
                       "-t", "avrispmk2",
                       "-i", "pdi",
@@ -73,7 +83,7 @@ class FlashThreadlink(QObject):
                      "-i", "pdi",
                      "-d", "atxmega128a4u",
                      "program",
-                     "--flash", "-f", str(main_file),
+                     "--flash", "-f", str(self.main_file),
                      "--format", "hex",
                      "--verify"]
         write_fuses = [self.atprogram_path,
@@ -96,7 +106,6 @@ class FlashThreadlink(QObject):
                          "prog_main": prog_main,
                          "write_fuses": write_fuses,
                          "write_lockbits": write_lockbits}
-        self.version_signal.emit(main_app_ver, str(one_wire_file), one_wire_ver)
 
     @pyqtSlot()
     def flash(self):
@@ -120,7 +129,7 @@ class FlashThreadlink(QObject):
                 self.process_error_signal.emit()
                 break
             except FileNotFoundError:
-                self.file_not_found_signal.emit()
+                self.file_not_found_signal.emit(cmd[10])
                 break
 
 
