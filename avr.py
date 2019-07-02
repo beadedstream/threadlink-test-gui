@@ -13,6 +13,7 @@ class FlashThreadlink(QObject):
     process_error_signal = pyqtSignal()
     file_not_found_signal = pyqtSignal(str)
     version_signal = pyqtSignal(str, str, str)
+    generic_error_signal = pyqtSignal(str)
 
     def __init__(self, atprogram_path, hex_files_path):
         super().__init__()
@@ -20,6 +21,7 @@ class FlashThreadlink(QObject):
         # Hide console window
         self.si = subprocess.STARTUPINFO()
         self.si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+
         self.atprogram_path = atprogram_path
         self.hex_files_path = hex_files_path
         self.boot_file = Path.joinpath(hex_files_path, "boot-section.hex")
@@ -29,6 +31,10 @@ class FlashThreadlink(QObject):
         self.commands = None
 
     def check_files(self):
+
+        if not Path(self.atprogram_path).is_file():
+            self.file_not_found_signal.emit("atprogram.exe")
+            return
 
         if not self.boot_file.is_file():
             self.file_not_found_signal.emit("boot-section")
@@ -131,7 +137,9 @@ class FlashThreadlink(QObject):
             except FileNotFoundError:
                 self.file_not_found_signal.emit(cmd[10])
                 break
-
+            except Exception as e:
+                self.generic_error_signal.emit(e)
+                break
 
         self.flash_finished.emit()
 

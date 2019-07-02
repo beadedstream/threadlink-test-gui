@@ -29,8 +29,8 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-Source: "C:\Users\samuel\beadedstream-threadlink\dist\threadlink_test_utility.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "C:\Users\samuel\beadedstream-threadlink\dist\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "C:\Users\samuel\beadedstream-threadlink\dist\threadlink_test_utility\threadlink_test_utility.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "C:\Users\samuel\beadedstream-threadlink\dist\threadlink_test_utility\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Icons]

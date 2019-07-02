@@ -133,6 +133,7 @@ class Program(QWizardPage):
         self.flash.flash_finished.connect(self.flash_finished)
         self.flash.process_error_signal.connect(self.process_error)
         self.flash.file_not_found_signal.connect(self.file_not_found)
+        self.flash.generic_error_signal.connect(self.generic_error)
         self.flash.version_signal.connect(self.set_versions)
 
         self.threadlink.button(QWizard.NextButton).setEnabled(False)
