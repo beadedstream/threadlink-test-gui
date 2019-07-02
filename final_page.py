@@ -10,12 +10,13 @@ from PyQt5.QtCore import Qt, pyqtSignal, QThread
 
 class FinalPage(QWizardPage):
     """Final QWizard page, displays test result."""
-    def __init__(self, test_utility, report):
+    def __init__(self, threadlink, test_utility, report):
         self.system_font = QApplication.font().family()
         self.label_font = QFont(self.system_font, 12)
 
         super().__init__()
 
+        self.threadlink = threadlink
         self.tu = test_utility
         self.report = report
 
@@ -23,13 +24,11 @@ class FinalPage(QWizardPage):
         self.report.file_not_found_signal.connect(self.file_not_found)
         self.report.generic_error_signal.connect(self.generic_error)
 
+        # Disable abort button
+        self.threadlink.button(QWizard.CustomButton1).setEnabled(False)
+
         # Check test result
         report_dir_path = self.tu.settings.value("report_dir_path")
-
-        # if not path.isdir(report_file_path):
-        #     QMessageBox.warning(self, "Warning", "Report directory does not "
-        #                         "exist!\n Please specify directory.")
-
         self.report.set_file_location(report_dir_path)
         report_file_path = self.report.generate_report()
 

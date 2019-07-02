@@ -46,7 +46,7 @@ class Threadlink(QWizard):
                                             model, report))
         interfaces_id = self.addPage(Interfaces(self, test_utility, 
                                                 serial_manager, model, report))
-        final_id = self.addPage(FinalPage(test_utility, report))
+        final_id = self.addPage(FinalPage(self, test_utility, report))
 
         self.setup_page = self.page(setup_id)
         self.program_page = self.page(program_id)

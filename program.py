@@ -63,11 +63,11 @@ class Program(QWizardPage):
             lambda: self.threadlink.checked(self.batch_lbl, self.batch_chkbx))
         self.batch_chkbx.clicked.connect(self.check_hex_file_version)
 
-        self.batch_pbar_lbl = QLabel("Flash Xmega.")
+        self.batch_pbar_lbl = QLabel("Flash Xmega")
         self.batch_pbar_lbl.setFont(self.label_font)
         self.batch_pbar = QProgressBar()
 
-        self.watchdog_pbar_lbl = QLabel("Resetting watchdog...")
+        self.watchdog_pbar_lbl = QLabel("Reset watchdog")
         self.watchdog_pbar_lbl.setFont(self.label_font)
         self.watchdog_pbar = QProgressBar()
         self.watchdog_pbar.setRange(0, 1)
@@ -138,7 +138,7 @@ class Program(QWizardPage):
         self.threadlink.button(QWizard.NextButton).setEnabled(False)
         self.threadlink.button(QWizard.NextButton).setAutoDefault(False)
 
-        self.batch_pbar.setValue(0)
+        # self.batch_pbar.setValue(0)
 
         self.flash_counter = 0
 
@@ -241,6 +241,7 @@ class Program(QWizardPage):
         """Starts flash by emitting command."""
         self.batch_pbar_lbl.setText("Erasing flash...")
         self.batch_pbar.setRange(0, 6)
+        self.batch_pbar.setValue(0)
         self.flash_signal.emit()
 
     def flash_update(self, cmd_text):
@@ -273,6 +274,7 @@ class Program(QWizardPage):
     def start_watchdog_reset(self):
         self.sm.data_ready.connect(self.watchdog_handler)
         self.watchdog_pbar.setRange(0, 0)
+        self.watchdog_pbar_lbl.setText("Resetting watchdog...")
         self.command_signal.emit("watchdog")
 
     def watchdog_handler(self, data):
@@ -329,10 +331,15 @@ class Program(QWizardPage):
 
         # Get file length
         count = 0
-        with open(self.one_wire_file_path, "r") as f:
-            for line in f:
-                count += 1
-        self.one_wire_pbar.setRange(0, count)
+        try:
+            with open(self.one_wire_file_path, "r") as f:
+                for line in f:
+                    count += 1
+            self.one_wire_pbar.setRange(0, count)
+        except IOError:
+            QMessageBox.warning(self, "Warning",
+                                "Can't open one-wire-master file!")
+            return
         # Check for response from board before proceeding
         pattern = "download hex records now..."
 
