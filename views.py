@@ -48,7 +48,7 @@ class ThreadlinkUtility(QMainWindow):
         settings_defaults = {
             "port1_tac_id": "",
             "hex_files_path": "/path/to/hex/files",
-            "report_file_path": "/path/to/report/folder",
+            "report_dir_path": "/path/to/report/folder",
             "atprogram_file_path": "/path/to/atprogram.exe"
         }
 
@@ -408,7 +408,7 @@ class ThreadlinkUtility(QMainWindow):
         self.report_btn.clicked.connect(self.set_report_location)
         self.report_lbl = QLabel("Set report save location: ")
         self.report_lbl.setFont(self.config_font)
-        self.report_path_lbl = QLabel(self.settings.value("report_file_path"))
+        self.report_path_lbl = QLabel(self.settings.value("report_dir_path"))
         self.report_path_lbl.setFont(self.config_path_font)
         self.report_path_lbl.setStyleSheet("QLabel {color: blue}")
 
@@ -525,7 +525,7 @@ class ThreadlinkUtility(QMainWindow):
             return
 
         self.settings.setValue("hex_files_path", self.hex_path_lbl.text())
-        self.settings.setValue("report_file_path", self.report_path_lbl.text())
+        self.settings.setValue("report_dir_path", self.report_path_lbl.text())
         self.settings.setValue("atprogram_file_path",
                                self.atprogram_path_lbl.text())
 

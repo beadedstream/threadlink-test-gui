@@ -123,6 +123,7 @@ class Program(QWizardPage):
         self.sm.no_version.connect(self.no_version)
         self.sm.line_written.connect(self.update_pbar)
         self.sm.file_not_found_signal.connect(self.file_not_found)
+        self.sm.generic_error_signal.connect(self.generic_error)
         self.test_one_wire.connect(self.sm.one_wire_test)
         self.reprogram_one_wire.connect(self.sm.reprogram_one_wire)
         self.file_write_signal.connect(self.sm.write_hex_file)
@@ -144,6 +145,9 @@ class Program(QWizardPage):
         # Flag for tracking page completion and allowing the next button
         # to be re-enabled.
         self.is_complete = False
+
+    def generic_error(self, error):
+        QMessageBox.warning(self, "Warning", error)
 
     def serial_error(self):
         QMessageBox.warning(self, "Warning!", "Serial error!")

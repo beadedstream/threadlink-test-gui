@@ -24,14 +24,14 @@ class FinalPage(QWizardPage):
         self.report.generic_error_signal.connect(self.generic_error)
 
         # Check test result
-        report_file_path = self.tu.settings.value("report_file_path")
+        report_dir_path = self.tu.settings.value("report_dir_path")
 
         # if not path.isdir(report_file_path):
         #     QMessageBox.warning(self, "Warning", "Report directory does not "
         #                         "exist!\n Please specify directory.")
 
-        self.report.set_file_location(report_file_path)
-        self.report.generate_report()
+        self.report.set_file_location(report_dir_path)
+        report_file_path = self.report.generate_report()
 
         test_result = self.report.test_result
 
@@ -68,8 +68,8 @@ class FinalPage(QWizardPage):
                             "exist!\n Please specify directory.")
         report_dir = QFileDialog.getExistingDirectory(self,
             "Select report save location.")
-        self.tu.settings.setValue("report_file_path", report_dir)
+        self.tu.settings.setValue("report_dir_path", report_dir)
         self.initializePage()
 
-    def generic_error(self):
-        QMessageBox.warning(self, "Warning", "Failed to write report!")
+    def generic_error(self, error):
+        QMessageBox.warning(self, "Warning", error)

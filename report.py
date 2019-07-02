@@ -1,5 +1,5 @@
 import csv
-from os import path
+from pathlib import Path
 from datetime import datetime as dt
 from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot
 
@@ -18,9 +18,8 @@ class Report(QObject):
     set_file_location   -- Sets file path for report location.
     generate_report     -- Generates report and saves to path location.
     """
-    write_error_signal = pyqtSignal()
     file_not_found_signal = pyqtSignal()
-    generic_error_signal = pyqtSignal()
+    generic_error_signal = pyqtSignal(str)
 
     def __init__(self):
         super().__init__()
@@ -62,9 +61,9 @@ class Report(QObject):
 
     def set_file_location(self, file_path):
         """Sets the file path for the report's save location."""
-        self.file_path = file_path
+        self.file_path = Path(file_path)
 
-    def generate_report(self):
+    def generate_report(self) -> str:
         """Writes all data in the data dictionary to an output file."""
         # Get the time again for a more accurate report timestamp.
         today = dt.now()
@@ -79,7 +78,7 @@ class Report(QObject):
         sn = self.data["pcba_sn"][1]
         id = self.data["tester_id"][1]
 
-        name = path.join(self.file_path, f"{sn}_{ts}-ID-{id}.csv")
+        name = str(self.file_path.joinpath(f"{sn}_{ts}-ID-{id}.csv"))
 
         # Check for any tests that failed.
         for _, test in self.data.items():
@@ -88,6 +87,7 @@ class Report(QObject):
                 name = name[:-4] + "_FAIL.csv"
                 break
             self.test_result = "PASS"
+        
 
         try:
             with open(name, "w", newline='') as f:
@@ -100,5 +100,9 @@ class Report(QObject):
 
         except FileNotFoundError:
             self.file_not_found_signal.emit()
-        except:
-            self.generic_error_signal.emit()
+            return
+        except Exception as e:
+            self.generic_error_signal.emit(e)
+            return
+
+        return name

@@ -22,6 +22,7 @@ class SerialManager(QObject):
     no_version = pyqtSignal()
     serial_error_signal = pyqtSignal()
     file_not_found_signal = pyqtSignal(str)
+    generic_error_signal = pyqtSignal(str)
 
     def __init__(self):
         super().__init__()
@@ -95,6 +96,8 @@ class SerialManager(QObject):
 
             except serial.serialutil.SerialException:
                 self.port_unavailable_signal.emit()
+            except Exception as e:
+                self.generic_error_signal.emit()
         else:
             self.no_port_sel_batch.emit()
 
