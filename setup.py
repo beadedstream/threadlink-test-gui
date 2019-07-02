@@ -136,7 +136,6 @@ class Setup(QWizardPage):
 
     def parse_values(self):
         """Parse the input values and check their validity."""
-        self.submit_button.setEnabled(False)
         limits = ["input_i", "5v_supply", "2p5v", "1p8v"]
         values = []
         try:
@@ -147,6 +146,8 @@ class Setup(QWizardPage):
         except ValueError:
             QMessageBox.warning(self, "Warning", "Bad input value!")
             return
+
+        self.submit_button.setEnabled(False)
         for limit, value in zip(limits, values):
             if(self.model.compare_to_limit(limit, value)):
                 self.report.write_data(limit, value, "PASS")
