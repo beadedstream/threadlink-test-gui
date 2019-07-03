@@ -35,11 +35,41 @@ class Program(QWizardPage):
         self.main_app_file_version = None
         self.one_wire_file_version = None
         self.one_wire_file_path = None
+        
+        self.flash = avr.FlashThreadlink()
 
+        self.flash_thread = QThread()
+        self.flash.moveToThread(self.flash_thread)
+        self.flash_thread.start()
+
+        self.flash_signal.connect(self.flash.flash)
+        self.flash.command_succeeded.connect(self.flash_update)
+        self.flash.command_failed.connect(self.flash_failed)
+        self.flash.flash_finished.connect(self.flash_finished)
+        self.flash.process_error_signal.connect(self.process_error)
+        self.flash.file_not_found_signal.connect(self.file_not_found)
+        self.flash.generic_error_signal.connect(self.generic_error)
+        self.flash.version_signal.connect(self.set_versions)
+
+        self.command_signal.connect(self.sm.send_command)
+        self.sleep_signal.connect(self.sm.sleep)
+        self.complete_signal.connect(self.completeChanged)
+        self.board_version_check.connect(self.sm.version_check)
+
+        self.sm.version_signal.connect(self.compare_version)
+        self.sm.no_version.connect(self.no_version)
+        self.sm.line_written.connect(self.update_pbar)
+        self.sm.file_not_found_signal.connect(self.file_not_found)
+        self.sm.generic_error_signal.connect(self.generic_error)
         self.sm.no_port_sel.connect(self.port_warning)
-        self.sm.no_port_sel_batch.connect(self.port_warning_batch)
-        self.sm.no_port_sel_onewire.connect(self.port_warning_onewire)
+        self.sm.port_unavailable_signal.disconnect()
+        self.sm.port_unavailable_signal.connect(self.port_warning)
         self.sm.serial_error_signal.connect(self.serial_error)
+
+        self.test_one_wire.connect(self.sm.one_wire_test)
+        self.reprogram_one_wire.connect(self.sm.reprogram_one_wire)
+        self.file_write_signal.connect(self.sm.write_hex_file)
+
 
         self.system_font = QApplication.font().family()
         self.label_font = QFont(self.system_font, 12)
@@ -103,43 +133,22 @@ class Program(QWizardPage):
 
     def initializePage(self):
         self.pbar_value = 0
-
         at_path = self.tu.settings.value("atprogram_file_path")
         hex_path = Path(self.tu.settings.value("hex_files_path"))
-        self.flash = avr.FlashThreadlink(at_path, hex_path)
-        self.flash_thread = QThread()
-        self.flash.moveToThread(self.flash_thread)
-        self.flash_thread.start()
+        self.flash.set_files(at_path, hex_path)
 
-        self.flash.set_commands()
-
-        self.command_signal.connect(self.sm.send_command)
-        self.sleep_signal.connect(self.sm.sleep)
-        self.complete_signal.connect(self.completeChanged)
-        self.flash_signal.connect(self.flash.flash)
-        self.board_version_check.connect(self.sm.version_check)
-
-        self.sm.version_signal.connect(self.compare_version)
-        self.sm.no_version.connect(self.no_version)
-        self.sm.line_written.connect(self.update_pbar)
-        self.sm.file_not_found_signal.connect(self.file_not_found)
-        self.sm.generic_error_signal.connect(self.generic_error)
-        self.test_one_wire.connect(self.sm.one_wire_test)
-        self.reprogram_one_wire.connect(self.sm.reprogram_one_wire)
-        self.file_write_signal.connect(self.sm.write_hex_file)
-
-        self.flash.command_succeeded.connect(self.flash_update)
-        self.flash.command_failed.connect(self.flash_failed)
-        self.flash.flash_finished.connect(self.flash_finished)
-        self.flash.process_error_signal.connect(self.process_error)
-        self.flash.file_not_found_signal.connect(self.file_not_found)
-        self.flash.generic_error_signal.connect(self.generic_error)
-        self.flash.version_signal.connect(self.set_versions)
+        self.threadlink.unchecked(self.batch_lbl, self.batch_chkbx)
+        self.batch_pbar_lbl.setText("Flash Xmega")
+        self.batch_pbar.reset()
+        self.watchdog_pbar_lbl.setText("Reset watchdog")
+        self.watchdog_pbar.setRange(0, 1)
+        self.watchdog_pbar.reset()
+        self.one_wire_pbar_lbl.setText("Program OneWire master")
+        self.one_wire_pbar.setRange(0, 1)
+        self.one_wire_pbar.reset()
 
         self.threadlink.button(QWizard.NextButton).setEnabled(False)
         self.threadlink.button(QWizard.NextButton).setAutoDefault(False)
-
-        # self.batch_pbar.setValue(0)
 
         self.flash_counter = 0
 
@@ -149,18 +158,16 @@ class Program(QWizardPage):
 
     def generic_error(self, error):
         QMessageBox.warning(self, "Warning", error)
+        self.initializePage()
 
     def serial_error(self):
         QMessageBox.warning(self, "Warning!", "Serial error!")
+        self.initializePage()
 
     def process_error(self):
         """Creates a QMessagebox warning for an AVR programming error."""
         QMessageBox.warning(self, "Warning!", "Programming Error: Check" 
                             " AVR connection!")
-        self.threadlink.unchecked(self.batch_lbl, self.batch_chkbx)
-        self.batch_pbar_lbl.setText("Flash Xmega")
-        self.flash_thread.quit()
-        self.flash_thread.wait()
         self.initializePage()
 
     def file_not_found(self, file):
@@ -168,28 +175,11 @@ class Program(QWizardPage):
         QMessageBox.warning(self, "Warning!", f"File {file} not found! Check "
                             "configuration settings for correct file "
                             "locations.")
-        self.threadlink.unchecked(self.batch_lbl, self.batch_chkbx)
-        self.batch_pbar_lbl.setText("Flash Xmega")
-        self.flash_thread.quit()
-        self.flash_thread.wait()
         self.initializePage()
 
     def port_warning(self):
-        QMessageBox.warning(self, "Warning!", "No serial port selected!")
-
-    def port_warning_batch(self):
         """Creates a QMessagebox warning when no serial port selected."""
         QMessageBox.warning(self, "Warning!", "No serial port selected!")
-        self.threadlink.unchecked(self.batch_lbl,
-                       self.batch_chkbx)
-        self.batch_pbar.setRange(0, 1)
-
-    def port_warning_onewire(self):
-        """Creates a QMessagebox warning when no serial port selected."""
-        QMessageBox.warning(self, "Warning!", "No serial port selected!")
-        self.watchdog_pbar.setRange(0, 1)
-        self.flash_thread.quit()
-        self.flash_thread.wait()
         self.initializePage()
 
     def check_hex_file_version(self):
@@ -197,7 +187,6 @@ class Program(QWizardPage):
         hex file with the latest version and starts the version check on the
         board."""
         self.flash.check_files()
-        self.flash.set_commands()
 
     def set_versions(self, main_app_ver, one_wire_file, one_wire_ver):
         """Set a variable to have the most recent version of the main app.
@@ -268,8 +257,6 @@ class Program(QWizardPage):
         self.threadlink.checked(self.batch_lbl, self.batch_chkbx)
         self.tu.xmega_prog_status.setStyleSheet(self.threadlink.status_style_pass)
         self.tu.xmega_prog_status.setText("XMega Programming: PASS")
-        self.flash_thread.quit()
-        self.flash_thread.wait()
         self.start_watchdog_reset()
 
     def start_watchdog_reset(self):
@@ -285,23 +272,27 @@ class Program(QWizardPage):
         if not re.search(pattern, data):
             QMessageBox.warning(self, "Warning",
                                 "Error in serial data.")
-            self.watchdog_pbar.setRange(0, 1)
-            self.watchdog_pbar.setValue(0)
+            self.initializePage()
             return
         xmega_version = re.search(pattern_version, data).group()
         self.report.write_data("xmega_app", xmega_version, "PASS")
-        self.watchdog_pbar.setRange(0, 1)
         self.watchdog_pbar.setValue(1)
         self.watchdog_pbar_lbl.setText("Complete.")
         self.start_one_wire_programming()
 
     def start_one_wire_programming(self):
         self.sm.data_ready.connect(self.one_wire_version)
+
         self.test_one_wire.emit()
         self.one_wire_pbar_lbl.setText("Checking version...")
 
     def one_wire_version(self, data):
         self.sm.data_ready.disconnect()
+
+        self.watchdog_pbar.setRange(0, 1)
+        self.watchdog_pbar.setValue(1)
+        self.watchdog_pbar_lbl.setText("Complete")
+        
         pattern = r"([0-9]+\.[0-9]+[a-z])"
 
         if re.search(pattern, data):

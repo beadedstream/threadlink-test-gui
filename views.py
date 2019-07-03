@@ -254,13 +254,10 @@ class ThreadlinkUtility(QMainWindow):
     def connect_port(self, action: QAction):
         """Connects to a COM port by parsing the text from a clicked QAction
         menu object."""
-
         p = "COM[0-9]+"
         m = re.search(p, action.text())
         if m:
             port_name = m.group()
-            if (self.sm.is_connected(port_name)):
-                action.setChecked
             self.sm.open_port(port_name)
         else:
             QMessageBox.warning(self, "Warning", "Invalid port selection!")

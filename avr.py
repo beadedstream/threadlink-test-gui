@@ -15,13 +15,14 @@ class FlashThreadlink(QObject):
     version_signal = pyqtSignal(str, str, str)
     generic_error_signal = pyqtSignal(str)
 
-    def __init__(self, atprogram_path, hex_files_path):
+    def __init__(self):
         super().__init__()
 
         # Hide console window
         self.si = subprocess.STARTUPINFO()
         self.si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
 
+    def set_files(self, atprogram_path, hex_files_path):
         self.atprogram_path = atprogram_path
         self.hex_files_path = hex_files_path
         self.boot_file = Path.joinpath(hex_files_path, "boot-section.hex")
@@ -59,10 +60,6 @@ class FlashThreadlink(QObject):
             self.file_not_found_signal.emit("1-wire-master")
             return
 
-        self.version_signal.emit(main_app_ver, 
-                                 str(self.one_wire_file), one_wire_ver)
-
-    def set_commands(self):
         chip_erase = [self.atprogram_path,
                       "-t", "avrispmk2",
                       "-i", "pdi",
@@ -113,6 +110,9 @@ class FlashThreadlink(QObject):
                          "write_fuses": write_fuses,
                          "write_lockbits": write_lockbits}
 
+        self.version_signal.emit(main_app_ver, 
+                                 str(self.one_wire_file), one_wire_ver)
+
     @pyqtSlot()
     def flash(self):
         """Loops through all the commands to flash the D505 board."""
@@ -130,17 +130,16 @@ class FlashThreadlink(QObject):
 
             except ValueError:
                 self.command_failed.emit(cmd_text)
-                break
+                return
             except subprocess.CalledProcessError:
                 self.process_error_signal.emit()
-                break
+                return
             except FileNotFoundError:
                 self.file_not_found_signal.emit(cmd[10])
-                break
+                return
             except Exception as e:
                 self.generic_error_signal.emit(e)
-                break
-
+                return
         self.flash_finished.emit()
 
     @staticmethod

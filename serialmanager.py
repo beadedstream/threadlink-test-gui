@@ -9,12 +9,8 @@ class SerialManager(QObject):
     """Class that handles the serial connection."""
     data_ready = pyqtSignal(str)
     no_port_sel = pyqtSignal()
-    no_port_sel_batch = pyqtSignal()
-    no_port_sel_onewire = pyqtSignal()
     sleep_finished = pyqtSignal()
     line_written = pyqtSignal()
-    flash_test_succeeded = pyqtSignal()
-    flash_test_failed = pyqtSignal()
     serial_test_succeeded = pyqtSignal(str)
     serial_test_failed = pyqtSignal(str)
     port_unavailable_signal = pyqtSignal()
@@ -99,7 +95,7 @@ class SerialManager(QObject):
             except Exception as e:
                 self.generic_error_signal.emit()
         else:
-            self.no_port_sel_batch.emit()
+            self.no_port_sel.emit()
 
     @pyqtSlot()
     def one_wire_test(self):
@@ -116,9 +112,9 @@ class SerialManager(QObject):
                 data = self.ser.read_until(self.end).decode()
                 self.data_ready.emit(data)
             except serial.serialutil.SerialException:
-                self.no_port_sel_onewire.emit()
+                self.no_port_sel.emit()
         else:
-            self.no_port_sel_onewire.emit()
+            self.no_port_sel.emit()
 
     @pyqtSlot()
     def reprogram_one_wire(self):
@@ -132,9 +128,9 @@ class SerialManager(QObject):
                 data = self.ser.read(num_bytes).decode()
                 self.data_ready.emit(data)
             except serial.serialutil.SerialException:
-                self.no_port_sel_onewire.emit()
+                self.no_port_sel.emit()
         else:
-            self.no_port_sel_onewire.emit()
+            self.no_port_sel.emit()
 
     @pyqtSlot(str)
     def write_hex_file(self, file_path):
@@ -149,7 +145,7 @@ class SerialManager(QObject):
                         # minimum of 50 ms delay required after each line
                         time.sleep(0.060)
             except serial.serialutil.SerialException:
-                self.no_port_sel_onewire.emit()
+                self.no_port_sel.emit()
             except FileNotFoundError:
                 self.file_not_found_signal.emit("1-wire-master")
 
@@ -158,7 +154,7 @@ class SerialManager(QObject):
             data = self.ser.read_until(self.end).decode()
             self.data_ready.emit(data)
         else:
-            self.no_port_sel_onewire.emit()
+            self.no_port_sel.emit()
 
     @pyqtSlot(str)
     def set_serial(self, serial_num):
@@ -198,14 +194,16 @@ class SerialManager(QObject):
             self.ser.read(self.ser.in_waiting)
         except serial.serialutil.SerialException:
             return False
+
         return self.ser.port == port and self.ser.is_open
 
-    def open_port(self, port):
-        """Opens serial port."""
+    def open_port(self, port: str) -> bool:
+        """Opens serial port and checks that board is available."""
         try:
             self.ser.close()
             self.ser.port = port
             self.ser.open()
+
         except serial.serialutil.SerialException:
             self.port_unavailable_signal.emit()
 
