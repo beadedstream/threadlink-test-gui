@@ -133,9 +133,8 @@ class Program(QWizardPage):
 
     def initializePage(self):
         self.pbar_value = 0
-        at_path = self.tu.settings.value("atprogram_file_path")
-        hex_path = Path(self.tu.settings.value("hex_files_path"))
-        self.flash.set_files(at_path, hex_path)
+
+        self.set_flash_files()
 
         self.threadlink.unchecked(self.batch_lbl, self.batch_chkbx)
         self.batch_pbar_lbl.setText("Flash Xmega")
@@ -155,6 +154,11 @@ class Program(QWizardPage):
         # Flag for tracking page completion and allowing the next button
         # to be re-enabled.
         self.is_complete = False
+
+    def set_flash_files(self):
+        at_path = self.tu.settings.value("atprogram_file_path")
+        hex_path = Path(self.tu.settings.value("hex_files_path"))
+        self.flash.set_files(at_path, hex_path)
 
     def generic_error(self, error):
         QMessageBox.warning(self, "Warning", error)
@@ -186,6 +190,7 @@ class Program(QWizardPage):
         """Checks hex file paths to make sure files exist, finds the main app
         hex file with the latest version and starts the version check on the
         board."""
+        self.set_flash_files()
         self.flash.check_files()
 
     def set_versions(self, main_app_ver, one_wire_file, one_wire_ver):
