@@ -14,7 +14,7 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtGui import QPixmap, QFont
 from PyQt5.QtCore import QSettings, Qt, QThread
 
-VERSION_NUM = "0.1.0"
+VERSION_NUM = "0.2.0"
 
 WINDOW_WIDTH = 1400
 WINDOW_HEIGHT = 800
@@ -46,6 +46,7 @@ class ThreadlinkUtility(QMainWindow):
         self.settings = QSettings("BeadedStream", "Threadlink TestUtility")
 
         settings_defaults = {
+            "user_id": "",
             "port1_tac_id": "",
             "hex_files_path": "/path/to/hex/files",
             "report_dir_path": "/path/to/report/folder",
@@ -143,6 +144,7 @@ class ThreadlinkUtility(QMainWindow):
         self.pcba_sn_lbl.setFont(self.label_font)
 
         self.tester_id_input = QLineEdit()
+        self.tester_id_input.setText(self.settings.value("user_id"))
         self.pcba_sn_input = QLineEdit()
         self.tester_id_input.setFixedWidth(LINE_EDIT_WIDTH)
         self.pcba_sn_input.setFixedWidth(LINE_EDIT_WIDTH)
@@ -252,13 +254,10 @@ class ThreadlinkUtility(QMainWindow):
     def connect_port(self, action: QAction):
         """Connects to a COM port by parsing the text from a clicked QAction
         menu object."""
-
         p = "COM[0-9]+"
         m = re.search(p, action.text())
         if m:
             port_name = m.group()
-            if (self.sm.is_connected(port_name)):
-                action.setChecked
             self.sm.open_port(port_name)
         else:
             QMessageBox.warning(self, "Warning", "Invalid port selection!")
@@ -270,6 +269,7 @@ class ThreadlinkUtility(QMainWindow):
     def parse_values(self):
         """Parses and validates input values from the start page."""
         self.tester_id = self.tester_id_input.text().upper()
+        self.settings.setValue("user_id", self.tester_id)
         self.pcba_pn = self.pcba_pn_input.currentText()
         self.pcba_sn = self.pcba_sn_input.text().upper()
 
