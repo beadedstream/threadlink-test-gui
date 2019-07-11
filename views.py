@@ -14,7 +14,7 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtGui import QPixmap, QFont
 from PyQt5.QtCore import QSettings, Qt, QThread
 
-VERSION_NUM = "0.1.0"
+VERSION_NUM = "0.2.0"
 
 WINDOW_WIDTH = 1400
 WINDOW_HEIGHT = 800
@@ -46,12 +46,10 @@ class ThreadlinkUtility(QMainWindow):
         self.settings = QSettings("BeadedStream", "Threadlink TestUtility")
 
         settings_defaults = {
+            "user_id": "",
             "port1_tac_id": "",
-            "port2_tac_id": "",
-            "port3_tac_id": "",
-            "port4_tac_id": "",
             "hex_files_path": "/path/to/hex/files",
-            "report_file_path": "/path/to/report/folder",
+            "report_dir_path": "/path/to/report/folder",
             "atprogram_file_path": "/path/to/atprogram.exe"
         }
 
@@ -146,6 +144,7 @@ class ThreadlinkUtility(QMainWindow):
         self.pcba_sn_lbl.setFont(self.label_font)
 
         self.tester_id_input = QLineEdit()
+        self.tester_id_input.setText(self.settings.value("user_id"))
         self.pcba_sn_input = QLineEdit()
         self.tester_id_input.setFixedWidth(LINE_EDIT_WIDTH)
         self.pcba_sn_input.setFixedWidth(LINE_EDIT_WIDTH)
@@ -255,13 +254,10 @@ class ThreadlinkUtility(QMainWindow):
     def connect_port(self, action: QAction):
         """Connects to a COM port by parsing the text from a clicked QAction
         menu object."""
-
         p = "COM[0-9]+"
         m = re.search(p, action.text())
         if m:
             port_name = m.group()
-            if (self.sm.is_connected(port_name)):
-                action.setChecked
             self.sm.open_port(port_name)
         else:
             QMessageBox.warning(self, "Warning", "Invalid port selection!")
@@ -273,6 +269,7 @@ class ThreadlinkUtility(QMainWindow):
     def parse_values(self):
         """Parses and validates input values from the start page."""
         self.tester_id = self.tester_id_input.text().upper()
+        self.settings.setValue("user_id", self.tester_id)
         self.pcba_pn = self.pcba_pn_input.currentText()
         self.pcba_sn = self.pcba_sn_input.text().upper()
 
@@ -319,7 +316,7 @@ class ThreadlinkUtility(QMainWindow):
         self.output_2p5v_status = QLabel("2.5V Output: _____V")
         self.supply_1p8v_status = QLabel("1.8V Supply: _____V")
         self.xmega_prog_status = QLabel("XMega Programming: _____")
-        self.one_wire_prog_status = QLabel("1-Wire Master Programming:_____")
+        self.one_wire_prog_status = QLabel("1-Wire Programming:_____")
         self.internal_5v_status = QLabel("Internal 5V: _____V")
         self.tac_id_status = QLabel("TAC ID: _____")
         self.hall_effect_status = QLabel("Hall Effect Sensor Test:_____")
@@ -389,25 +386,10 @@ class ThreadlinkUtility(QMainWindow):
         port1_lbl = QLabel("Port 1 TAC ID:")
         port1_lbl.setFont(self.config_font)
         self.port1_tac_id = QLineEdit(self.settings.value("port1_tac_id"))
-        port2_lbl = QLabel("Port 2 TAC ID:")
-        port2_lbl.setFont(self.config_font)
-        self.port2_tac_id = QLineEdit(self.settings.value("port2_tac_id"))
-        port3_lbl = QLabel("Port 3 TAC ID:")
-        port3_lbl.setFont(self.config_font)
-        self.port3_tac_id = QLineEdit(self.settings.value("port3_tac_id"))
-        port4_lbl = QLabel("Port 4 TAC ID:")
-        port4_lbl.setFont(self.config_font)
-        self.port4_tac_id = QLineEdit(self.settings.value("port4_tac_id"))
 
         port_layout = QGridLayout()
         port_layout.addWidget(port1_lbl, 0, 0)
         port_layout.addWidget(self.port1_tac_id, 0, 1)
-        port_layout.addWidget(port2_lbl, 1, 0)
-        port_layout.addWidget(self.port2_tac_id, 1, 1)
-        port_layout.addWidget(port3_lbl, 2, 0)
-        port_layout.addWidget(self.port3_tac_id, 2, 1)
-        port_layout.addWidget(port4_lbl, 3, 0)
-        port_layout.addWidget(self.port4_tac_id, 3, 1)
 
         port_group = QGroupBox("TAC IDs")
         port_group.setLayout(port_layout)
@@ -426,7 +408,7 @@ class ThreadlinkUtility(QMainWindow):
         self.report_btn.clicked.connect(self.set_report_location)
         self.report_lbl = QLabel("Set report save location: ")
         self.report_lbl.setFont(self.config_font)
-        self.report_path_lbl = QLabel(self.settings.value("report_file_path"))
+        self.report_path_lbl = QLabel(self.settings.value("report_dir_path"))
         self.report_path_lbl.setFont(self.config_path_font)
         self.report_path_lbl.setStyleSheet("QLabel {color: blue}")
 
@@ -527,28 +509,23 @@ class ThreadlinkUtility(QMainWindow):
     def apply_settings(self):
         """Read user inputs and apply settings."""
 
-        tac_ports = {
-            "port1_tac_id": self.port1_tac_id,
-            "port2_tac_id": self.port2_tac_id,
-            "port3_tac_id": self.port3_tac_id,
-            "port4_tac_id": self.port4_tac_id
-        }
+        p = r"([a-fA-F0-9]){8}"
 
-        for key, tac_port in tac_ports.items():
-            p = r"([a-fA-F0-9]){8}"
-            if (re.fullmatch(p, tac_port.text())):
-                self.settings.setValue(key, tac_port.text())
+        port1_value = self.port1_tac_id.text()
 
-            else:
-                QMessageBox.warning(self.settings_widget,
-                                    "Warning!",
-                                    f"Bad TAC ID on Port {key[4]}!\n"
-                                    "IDs are 8 digit hex values.\n"
-                                    "E.g.: 000a5296")
-                return
+        if re.fullmatch(p, port1_value):
+            self.settings.setValue("port1_tac_id", port1_value)
+
+        else:
+            QMessageBox.warning(self.settings_widget,
+                                "Warning!",
+                                f"Bad TAC ID!\n"
+                                "IDs are 8 digit hex values.\n"
+                                "E.g.: 000a5296")
+            return
 
         self.settings.setValue("hex_files_path", self.hex_path_lbl.text())
-        self.settings.setValue("report_file_path", self.report_path_lbl.text())
+        self.settings.setValue("report_dir_path", self.report_path_lbl.text())
         self.settings.setValue("atprogram_file_path",
                                self.atprogram_path_lbl.text())
 

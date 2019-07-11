@@ -86,8 +86,9 @@ class Interfaces(QWizardPage):
 
         self.repeat_tests.setEnabled(False)
         
-        self.tests_pbar.setRange(0, 2)
         self.pbar_value = 0
+        self.tests_pbar.setRange(0, 2)
+        self.tests_pbar.setValue(self.pbar_value)
 
         self.tests_lbl.setText("Testing 5v...")
         self.sm.data_ready.connect(self.handle_5v_data)
@@ -95,7 +96,7 @@ class Interfaces(QWizardPage):
 
     def handle_5v_data(self, data):
         self.sm.data_ready.disconnect()
-        p = "([0-9]+\.[0-9]+)"
+        p = r"([0-9]+\.[0-9]+)"
         result = re.search(p, data)
 
         if result:

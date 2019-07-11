@@ -13,39 +13,52 @@ class FlashThreadlink(QObject):
     process_error_signal = pyqtSignal()
     file_not_found_signal = pyqtSignal(str)
     version_signal = pyqtSignal(str, str, str)
+    generic_error_signal = pyqtSignal(str)
 
-    def __init__(self, atprogram_path, hex_files_path):
+    def __init__(self):
         super().__init__()
 
         # Hide console window
         self.si = subprocess.STARTUPINFO()
         self.si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+
+    def set_files(self, atprogram_path, hex_files_path):
         self.atprogram_path = atprogram_path
         self.hex_files_path = hex_files_path
         self.boot_file = Path.joinpath(hex_files_path, "boot-section.hex")
         self.app_file = Path.joinpath(hex_files_path, "app-section.hex")
         self.main_file = None
+        self.one_wire_file = None
         self.commands = None
 
     def check_files(self):
 
+        if not Path(self.atprogram_path).is_file():
+            self.file_not_found_signal.emit("atprogram.exe")
+            return
+
         if not self.boot_file.is_file():
-            self.file_not_found_signal.emit(str(self.boot_file))
+            self.file_not_found_signal.emit("boot-section")
             return
 
         if not self.app_file.is_file():
-            self.file_not_found_signal.emit(str(self.app_file))
+            self.file_not_found_signal.emit("app-section")
             return
 
         main_files = list(self.hex_files_path.glob("main-app*.hex"))
-        main_file, main_app_ver = FlashThreadlink.get_latest_version(main_files)
+        self.main_file, main_app_ver = FlashThreadlink.get_latest_version(main_files)
 
-        if not main_file:
-            self.file_not_found_signal.emit(str(self.main_file))
+        if not self.main_file:
+            self.file_not_found_signal.emit("main-app")
             return
 
         one_wire_files = list(self.hex_files_path.glob("1-wire-master*.hex"))
-        one_wire_file, one_wire_ver = FlashThreadlink.get_latest_version(one_wire_files)
+        self.one_wire_file, one_wire_ver = FlashThreadlink.get_latest_version(
+                                                one_wire_files)
+
+        if not self.one_wire_file:
+            self.file_not_found_signal.emit("1-wire-master")
+            return
 
         chip_erase = [self.atprogram_path,
                       "-t", "avrispmk2",
@@ -55,7 +68,7 @@ class FlashThreadlink(QObject):
         prog_boot = [self.atprogram_path,
                      "-t", "avrispmk2",
                      "-i", "pdi",
-                     "-d", "atxmega256a3",
+                     "-d", "atxmega128a4u",
                      "program",
                      "--flash", "-f", str(self.boot_file),
                      "--format", "hex",
@@ -73,7 +86,7 @@ class FlashThreadlink(QObject):
                      "-i", "pdi",
                      "-d", "atxmega128a4u",
                      "program",
-                     "--flash", "-f", str(main_file),
+                     "--flash", "-f", str(self.main_file),
                      "--format", "hex",
                      "--verify"]
         write_fuses = [self.atprogram_path,
@@ -96,7 +109,9 @@ class FlashThreadlink(QObject):
                          "prog_main": prog_main,
                          "write_fuses": write_fuses,
                          "write_lockbits": write_lockbits}
-        self.version_signal.emit(main_app_ver, str(one_wire_file), one_wire_ver)
+
+        self.version_signal.emit(main_app_ver, 
+                                 str(self.one_wire_file), one_wire_ver)
 
     @pyqtSlot()
     def flash(self):
@@ -115,15 +130,16 @@ class FlashThreadlink(QObject):
 
             except ValueError:
                 self.command_failed.emit(cmd_text)
-                break
+                return
             except subprocess.CalledProcessError:
                 self.process_error_signal.emit()
-                break
+                return
             except FileNotFoundError:
-                self.file_not_found_signal.emit()
-                break
-
-
+                self.file_not_found_signal.emit(cmd[10])
+                return
+            except Exception as e:
+                self.generic_error_signal.emit(e)
+                return
         self.flash_finished.emit()
 
     @staticmethod
@@ -132,7 +148,7 @@ class FlashThreadlink(QObject):
         current_filename = None
 
         for name in filenames:
-            p = "([0-9]+\.[0-9]+[a-z])"
+            p = r"([0-9]+\.[0-9]+[a-z])"
             try:
                 version = re.search(p, str(name)).group()
             except AttributeError:
